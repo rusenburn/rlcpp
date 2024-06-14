@@ -20,7 +20,14 @@ namespace rl::games
         static constexpr int OPPONENT_CHANNEL{1};
         static constexpr int WALLS_CHANNEL{2};
         constexpr static std::array<std::array<int, 2>, 8> DIRECTIONS{
-            {{-1, -1}, {-1, 0}, {-1, 1}, {0, -1}, {0, 1}, {1, -1}, {1, 0}, {1, 1}}};
+            {{-1, -1},
+             {-1, 0},
+             {-1, 1},
+             {0, -1},
+             {0, 1},
+             {1, -1},
+             {1, 0},
+             {1, 1}}};
         static constexpr int N_DIRECTIONS{8};
         static constexpr int N_ACTIONS{ROWS * COLS * N_DIRECTIONS};
 
@@ -37,6 +44,7 @@ namespace rl::games
         static std::tuple<int, int, int, int> get_jump_row_col_and_build_row_col_from_action(int action);
         static bool is_valid_jump(int jump_row, int jump_col, int opponent_row, int opponent_col, const Walls &walls_ref_);
         static bool is_valid_build(int build_row, int build_col, int opponent_row, int opponent_col, const Walls &walls_ref_);
+
         static int encode_action(int jump_row, int jump_col, int a);
 
     public:
@@ -67,6 +75,8 @@ namespace rl::games
         std::vector<bool> actions_mask() const override;
         std::unique_ptr<WallsState> clone_state() const;
         std::unique_ptr<rl::common::IState> clone() const override;
+        void get_valid_jumps(std::vector<std::vector<bool>> &valid_jumps_out, std::vector<std::vector<std::vector<std::pair<int, int>>>> &valid_builds);
+        static int encode_action(int jump_row, int jump_col, int build_row, int build_col);
     };
 } // namespace rl::games
 

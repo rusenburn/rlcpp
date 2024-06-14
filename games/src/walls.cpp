@@ -343,6 +343,55 @@ namespace rl::games
         return clone_state();
     }
 
+    void WallsState::get_valid_jumps(std::vector<std::vector<bool>> &valid_jumps_out,std::vector<std::vector<std::vector<std::pair<int,int>>>> & valid_builds)
+    {
+        int player = current_player_;
+        int opponent = 1 - player;
+
+        int player_row, player_col, opponent_row, opponent_col;
+        // Note: positions has current player at position 0 index inside the array
+        player_row = positions_.at(0).at(0);
+        player_col = positions_.at(0).at(1);
+        opponent_row = positions_.at(1).at(0);
+        opponent_col = positions_.at(1).at(1);
+
+        for (auto [row_dir, col_dir] : DIRECTIONS)
+        {
+            int jump_row = player_row + row_dir;
+            int jump_col = player_col + col_dir;
+            if (is_valid_jump(jump_row, jump_col, opponent_row, opponent_col, walls_))
+            {
+                for (int a = 0; a < DIRECTIONS.size(); a++)
+                {
+                    auto [build_row_dir, build_col_dir] = DIRECTIONS.at(a);
+                    int build_row = jump_row + build_row_dir;
+                    int build_col = jump_col + build_col_dir;
+                    if (is_valid_build(build_row, build_col, opponent_row, opponent_col, walls_))
+                    {
+                        valid_jumps_out.at(jump_row).at(jump_col) = true;
+                        valid_builds.at(jump_row).at(jump_col).push_back(std::make_pair(build_row,build_col));
+                    }
+                }
+            }
+        }
+    }
+
+    int WallsState::encode_action(int jump_row, int jump_col, int build_row, int build_col)
+    {
+        int row_direction = build_row - jump_row;
+        int col_direction = build_col - jump_col;
+        int a = 0;
+        for(auto [row,col] : WallsState::DIRECTIONS)
+        {
+            if(row_direction == row && col_direction == col)
+            {
+                return encode_action(jump_row,jump_col,a);
+            }
+            a++;
+        }
+        throw rl::common::IllegalActionException("");
+    }
+
     std::tuple<int, int, int, int> WallsState::get_jump_row_col_and_build_row_col_from_action(int action)
     {
         int direction_index = action % N_DIRECTIONS;
