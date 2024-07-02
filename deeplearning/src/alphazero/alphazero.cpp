@@ -5,6 +5,7 @@
 #include <tuple>
 
 #include <common/random.hpp>
+#include <common/utils.hpp>
 #include <players/amcts_player.hpp>
 #include <players/amcts.hpp>
 #include <players/random_rollout_evaluator.hpp>
@@ -19,7 +20,10 @@ namespace rl::deeplearning::alphazero
     constexpr float N_VISITS = 1.0f;
     constexpr float N_WINS = -1.0f;
     constexpr float EPS = 1e-4f;
-    constexpr int N_TREES = 64;
+    constexpr int N_TREES = 8;
+    constexpr int N_COMPLETE_TO_END = N_TREES / 4;
+    constexpr float NO_RESIGN_THRESHOLD = -0.8f;
+    constexpr int MINIMUM_STEPS = 30;
     AlphaZero::AlphaZero(
         std::unique_ptr<rl::common::IState> initial_state_ptr,
         std::unique_ptr<rl::common::IState> test_state_ptr,
@@ -56,6 +60,16 @@ namespace rl::deeplearning::alphazero
         if (load_path.size())
         {
             base_network_ptr_->load(load_path);
+        }
+        for (int i = 0; i < N_TREES; i++)
+        {
+            states_ptrs_.push_back(initial_state_ptr_->reset());
+            subtrees_.push_back(get_new_subtree_ptr());
+            episode_obsevations_.push_back({});
+            episode_probs_.push_back({});
+            episode_wdls_.push_back({});
+            episode_players_.push_back({});
+            episode_steps_.push_back(0);
         }
     }
 
@@ -97,62 +111,56 @@ namespace rl::deeplearning::alphazero
         int cols = observation_shape.at(2);
         int observation_size = channels * rows * cols;
 
-        // prepare data collection vectors
-        std::vector<float> observations{};
-        std::vector<float> probabilities{};
-        std::vector<float> wdls{}; // wins draw losses
-        
-        std::vector<std::unique_ptr<rl::common::IState>> states_ptrs{};
-        std::vector<std::unique_ptr<AmctsSubTree>> subtrees{};
-        std::vector<std::vector<float>> env_obsevations{};
-        std::vector<std::vector<float>> env_probs{};
-        std::vector<std::vector<float>> env_wdls{};
-        std::vector<std::vector<int>> env_players{};
-        for (int i = 0; i < N_TREES; i++)
-        {
-            states_ptrs.push_back(initial_state_ptr_->reset());
-            subtrees.push_back(get_new_subtree_ptr());
-            env_obsevations.push_back({});
-            env_probs.push_back({});
-            env_wdls.push_back({});
-            env_players.push_back({});
-        }
+        // // prepare data collection vectors
+        // std::vector<float> observations{};
+        // std::vector<float> probabilities{};
+        // std::vector<float> wdls{}; // wins draw losses
+
+        // std::vector<std::unique_ptr<rl::common::IState>> states_ptrs{};
+        // std::vector<std::unique_ptr<AmctsSubTree>> subtrees{};
+        // std::vector<std::vector<float>> env_obsevations{};
+        // std::vector<std::vector<float>> env_probs{};
+        // std::vector<std::vector<float>> env_wdls{};
+        // std::vector<std::vector<int>> env_players{};
+        // for (int i = 0; i < N_TREES; i++)
+        // {
+        //     states_ptrs.push_back(initial_state_ptr_->reset());
+        //     subtrees.push_back(get_new_subtree_ptr());
+        //     env_obsevations.push_back({});
+        //     env_probs.push_back({});
+        //     env_wdls.push_back({});
+        //     env_players.push_back({});
+        // }
         int iteration{0};
         while (iteration < n_iterations_)
         {
             auto collection_start = std::chrono::high_resolution_clock::now();
 
             std::cout << "Iteration " << iteration + 1 << " of " << n_iterations_ << std::endl;
-            // for (int episode{0}; episode < n_episodes_; episode++)
-            // {
-            //     execute_episode(observations, probabilities, wdls, iteration > 0 || load_path_.size() > 0);
-            // }
 
-            collect_data(observations, probabilities, wdls,
-                         states_ptrs, subtrees, env_obsevations, env_probs,
-                         env_wdls, env_players);
+            collect_data();
             auto collection_end = std::chrono::high_resolution_clock::now();
             auto collection_duration = collection_end - collection_start;
             auto collection_duration_in_seconds = (collection_duration) / std::chrono::seconds(1);
             std::cout << "Collection phase ended , took " << collection_duration_in_seconds << " s " << std::endl;
 
-            int n_examples = observations.size() / observation_size;
-            if (n_examples * observation_size != observations.size())
+            int n_examples = all_observations_.size() / observation_size;
+            if (n_examples * observation_size != all_observations_.size())
             {
                 std::runtime_error("observations number is wrong");
             }
-            else if (n_examples != probabilities.size() / n_game_actions_)
+            else if (n_examples != all_probabilities_.size() / n_game_actions_)
             {
                 std::runtime_error("probabilities examples count are different from observations");
             }
-            else if (n_examples != wdls.size() / 3)
+            else if (n_examples != all_wdls_.size() / 3)
             {
                 std::runtime_error("wdls examples count are different from observations");
             }
 
             std::cout << "Training phase using " << n_examples << " examples..." << std::endl;
 
-            train_network(observations, probabilities, wdls);
+            train_network(all_observations_, all_probabilities_, all_wdls_);
 
             iteration++;
 
@@ -176,9 +184,9 @@ namespace rl::deeplearning::alphazero
                 }
             }
 
-            observations.clear();
-            probabilities.clear();
-            wdls.clear();
+            all_observations_.clear();
+            all_probabilities_.clear();
+            all_wdls_.clear();
             base_network_ptr_->save(file_path.string());
             strongest->save(strongest_path.string());
         }
@@ -281,9 +289,9 @@ namespace rl::deeplearning::alphazero
 
         // Avoid extreme prob values like 1 or 0
         probabilities_tensor = probabilities_tensor + EPS;
-        probabilities_tensor = probabilities_tensor / probabilities_tensor.sum(-1,true);
+        probabilities_tensor = probabilities_tensor / probabilities_tensor.sum(-1, true);
         wdl_tensor = wdl_tensor + EPS;
-        wdl_tensor = wdl_tensor / wdl_tensor.sum(-1,true);
+        wdl_tensor = wdl_tensor / wdl_tensor.sum(-1, true);
 
         for (int epoch{0}; epoch < n_epoches_; epoch++)
         {
@@ -309,7 +317,6 @@ namespace rl::deeplearning::alphazero
 
                 torch::Tensor filter = filter_0 * filter_1 * filter_2 * filter_3;
 
-                
                 predicted_probs = predicted_probs.index({filter});
                 target_probs_batch = target_probs_batch.index({filter});
                 predicted_wdls = predicted_wdls.index({filter});
@@ -323,8 +330,8 @@ namespace rl::deeplearning::alphazero
 
                 total_loss.backward();
 
-                torch::nn::utils::clip_grad_value_(base_network_ptr_->parameters(),10000);
-                torch::nn::utils::clip_grad_norm_(base_network_ptr_->parameters(),10,2.0,true);
+                torch::nn::utils::clip_grad_value_(base_network_ptr_->parameters(), 10000);
+                torch::nn::utils::clip_grad_norm_(base_network_ptr_->parameters(), 10, 2.0, true);
 
                 optimizer.step();
                 actor_losses.push_back(actor_loss.detach().cpu().item<float>());
@@ -353,15 +360,9 @@ namespace rl::deeplearning::alphazero
         auto loss = -(target * log_probs).sum(-1).mean();
         return loss;
     }
-    void AlphaZero::collect_data(std::vector<float> &observations_out, std::vector<float> &probabilities_out, std::vector<float> &wdls_out,
-                                 std::vector<std::unique_ptr<rl::common::IState>> &states_ptrs,
-                                 std::vector<std::unique_ptr<AmctsSubTree>> &subtrees,
-                                 std::vector<std::vector<float>> &env_obsevations,
-                                 std::vector<std::vector<float>> &env_probs,
-                                 std::vector<std::vector<float>> &env_wdls,
-                                 std::vector<std::vector<int>> &env_players)
+    void AlphaZero::collect_data()
     {
-        int max_n_trees = states_ptrs.size();
+        int max_n_trees = states_ptrs_.size();
         std::cout << "running " << max_n_trees << "parallel trees" << std::endl;
         int completed_episodes = 0;
         int trees_n_simulations = 0;
@@ -372,11 +373,11 @@ namespace rl::deeplearning::alphazero
         {
             std::vector<int> trees_idx{};
             std::vector<const rl::common::IState *> rollout_states{};
-            int current_n_trees = static_cast<int>(subtrees.size());
+            int current_n_trees = static_cast<int>(subtrees_.size());
             for (int i = 0; i < current_n_trees; i++)
             {
-                auto &subtree = subtrees.at(i);
-                auto &state = states_ptrs.at(i);
+                auto &subtree = subtrees_.at(i);
+                auto &state = states_ptrs_.at(i);
                 for (int j = 0; j < N_ASYNC; j++)
                 {
                     subtree->roll(state.get());
@@ -413,7 +414,7 @@ namespace rl::deeplearning::alphazero
             }
             for (int i = 0; i < current_n_trees; i++)
             {
-                auto &current_sub_tree = subtrees.at(i);
+                auto &current_sub_tree = subtrees_.at(i);
                 auto &current_evaluation_tuple = trees_evaluations.at(i);
                 current_sub_tree->evaluate_collected_states(current_evaluation_tuple);
             }
@@ -426,73 +427,94 @@ namespace rl::deeplearning::alphazero
             trees_n_simulations = 0;
             for (int i = 0; i < current_n_trees; i++)
             {
-                auto &subtree = subtrees.at(i);
-                auto &state_ptr = states_ptrs.at(i);
+                auto &subtree = subtrees_.at(i);
+                auto &state_ptr = states_ptrs_.at(i);
                 int current_player = state_ptr->player_turn();
-                env_players.at(i).push_back(current_player);
+                episode_players_.at(i).push_back(current_player);
                 std::vector<float> state_probs = subtree->get_probs(state_ptr.get());
+                float ev = subtree->get_evaluation(state_ptr.get());
                 for (float cell : state_ptr->get_observation())
                 {
-                    env_obsevations.at(i).push_back(cell);
+                    episode_obsevations_.at(i).push_back(cell);
                 }
                 for (float p : state_probs)
                 {
-                    env_probs.at(i).push_back(p);
+                    episode_probs_.at(i).push_back(p);
                 }
-                int action = choose_action(state_probs);
-                state_ptr = state_ptr->step(action);
-                if (state_ptr->is_terminal())
+
+                bool is_complete_to_end = i < N_COMPLETE_TO_END;
+                if (episode_steps_.at(i) >= MINIMUM_STEPS && is_complete_to_end == false && ev < NO_RESIGN_THRESHOLD)
                 {
                     int last_player = state_ptr->player_turn();
-                    float result = state_ptr->get_reward();
-                    // convert result to win draw loss
-                    float win = result > 0.001f ? 1.0f : 0.0f;
-                    float loss = result < -0.001f ? 1.0f : 0.0f;
-                    float draw = result <= 0.001f && result >= -0.001f ? 1.0f : 0.0f;
-                    for (auto p : env_players.at(i))
-                    {
-                        if (last_player == p)
-                        {
-                            env_wdls.at(i).push_back(win);
-                            env_wdls.at(i).push_back(draw);
-                            env_wdls.at(i).push_back(loss);
-                        }
-                        else
-                        {
-                            env_wdls.at(i).push_back(loss);
-                            env_wdls.at(i).push_back(draw);
-                            env_wdls.at(i).push_back(win);
-                        }
-                    }
-
-                    for (float cell : env_obsevations.at(i))
-                    {
-                        observations_out.push_back(cell);
-                    }
-                    for (float p : env_probs.at(i))
-                    {
-                        probabilities_out.push_back(p);
-                    }
-                    for (float v : env_wdls.at(i))
-                    {
-                        wdls_out.push_back(v);
-                    }
-
+                    float result = -1;
+                    end_subtree(i, last_player, result);
                     completed_episodes++;
-
-                    // reset everything belong to this state
-                    env_obsevations.at(i).clear();
-                    env_players.at(i).clear();
-                    env_probs.at(i).clear();
-                    env_wdls.at(i).clear();
-
-                    subtrees.at(i) = get_new_subtree_ptr();
-                    states_ptrs.at(i) = initial_state_ptr_->reset();
+                }
+                else
+                {
+                    int episode_length = episode_steps_.at(i);
+                    float temperature = episode_length > 30 ? powf(0.5, (episode_length - 30) / 30) : 1.0f;
+                    std::vector<float> probs_with_temp = rl::common::utils::apply_temperature(state_probs, temperature);
+                    int action = choose_action(probs_with_temp);
+                    state_ptr = state_ptr->step(action);
+                    episode_steps_.at(i)++;
+                    if (state_ptr->is_terminal())
+                    {
+                        int last_player = state_ptr->player_turn();
+                        float result = state_ptr->get_reward();
+                        end_subtree(i, last_player, result);
+                        completed_episodes++;
+                    }
                 }
             }
         }
     }
 
+    void AlphaZero::end_subtree(int i, int last_player, float result)
+    {
+        // convert result to win draw loss
+        float win = result > 0.001f ? 1.0f : 0.0f;
+        float loss = result < -0.001f ? 1.0f : 0.0f;
+        float draw = result <= 0.001f && result >= -0.001f ? 1.0f : 0.0f;
+        for (auto p : episode_players_.at(i))
+        {
+            if (last_player == p)
+            {
+                episode_wdls_.at(i).push_back(win);
+                episode_wdls_.at(i).push_back(draw);
+                episode_wdls_.at(i).push_back(loss);
+            }
+            else
+            {
+                episode_wdls_.at(i).push_back(loss);
+                episode_wdls_.at(i).push_back(draw);
+                episode_wdls_.at(i).push_back(win);
+            }
+        }
+
+        for (float cell : episode_obsevations_.at(i))
+        {
+            all_observations_.push_back(cell);
+        }
+        for (float p : episode_probs_.at(i))
+        {
+            all_probabilities_.push_back(p);
+        }
+        for (float v : episode_wdls_.at(i))
+        {
+            all_wdls_.push_back(v);
+        }
+
+        // reset everything belong to this state
+        episode_obsevations_.at(i).clear();
+        episode_players_.at(i).clear();
+        episode_probs_.at(i).clear();
+        episode_wdls_.at(i).clear();
+        episode_steps_.at(i) = 0;
+
+        subtrees_.at(i) = get_new_subtree_ptr();
+        states_ptrs_.at(i) = initial_state_ptr_->reset();
+    }
     std::unique_ptr<AmctsSubTree> AlphaZero::get_new_subtree_ptr()
     {
         return std::make_unique<AmctsSubTree>(n_game_actions_, 2.0f, 1.0f, N_VISITS, N_WINS);

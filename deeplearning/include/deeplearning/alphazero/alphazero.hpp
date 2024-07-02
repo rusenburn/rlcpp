@@ -26,19 +26,23 @@ namespace rl::deeplearning::alphazero
         torch::DeviceType dev_;
         std::string load_path_;
         std::string save_name_;
+        std::vector<float> all_observations_{};
+        std::vector<float> all_probabilities_{};
+        std::vector<float> all_wdls_{};
+        std::vector<std::unique_ptr<rl::common::IState>> states_ptrs_{};
+        std::vector<std::unique_ptr<AmctsSubTree>> subtrees_{};
+        std::vector<std::vector<float>> episode_obsevations_{};
+        std::vector<std::vector<float>> episode_probs_{};
+        std::vector<std::vector<float>> episode_wdls_{};
+        std::vector<std::vector<int>> episode_players_{};
+        std::vector<float> episode_steps_{};
 
         int choose_action(std::vector<float> &probs);
         void train_network(std::vector<float> &observations, std::vector<float> &probabilities, std::vector<float> &wdls);
         static torch::Tensor cross_entropy_loss_(torch::Tensor &target, torch::Tensor &prediction);
-        void collect_data(std::vector<float> &observations_out, std::vector<float> &probabilities_out, std::vector<float> &wdls_out,
-                                 std::vector<std::unique_ptr<rl::common::IState>> &states_ptrs,
-                                 std::vector<std::unique_ptr<AmctsSubTree>> &subtrees,
-                                 std::vector<std::vector<float>> &env_obsevations,
-                                 std::vector<std::vector<float>> &env_probs,
-                                 std::vector<std::vector<float>> &env_wdls,
-                                 std::vector<std::vector<int>> &env_players);
+        void collect_data();
+        void end_subtree(int subtree_id, int last_player, float result);
         std::unique_ptr<AmctsSubTree> get_new_subtree_ptr();
-        
 
     public:
         AlphaZero(

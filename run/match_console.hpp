@@ -34,6 +34,7 @@ namespace rl::run
         static constexpr int OTHELLO_GAME = 1;
         static constexpr int ENGLISH_DRAUGHTS_GAME = 2;
         static constexpr int WALLS_GAME = 3;
+        static constexpr int DAMMA_GAME = 4;
 
         int state_index_{OTHELLO_GAME};
         void print_current_settings();

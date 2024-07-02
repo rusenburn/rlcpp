@@ -19,6 +19,7 @@ namespace rl::run
         static constexpr int OTHELLO = 1;
         static constexpr int ENGLISH_DRAUGHTS = 2;
         static constexpr int WALLS = 3;
+        static constexpr int DAMMA = 4;
 
         int state_choice_ {1};
         int n_iterations_{20};

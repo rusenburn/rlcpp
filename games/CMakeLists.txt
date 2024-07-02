@@ -3,9 +3,10 @@ cmake_minimum_required(VERSION 3.10.2 FATAL_ERROR)
 set(This games)
 project(${This})
 set(SourceFiles 
+    src/damma.cpp
+    src/english_draughts.cpp
     src/tictactoe.cpp
     src/othello.cpp
-    src/english_draughts.cpp
     src/walls.cpp
     )
 set(HeaderFiles )

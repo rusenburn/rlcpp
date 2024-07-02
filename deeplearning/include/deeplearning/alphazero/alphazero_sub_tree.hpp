@@ -25,6 +25,7 @@ namespace rl::deeplearning
         std::set<std::string> states_;
         std::map<std::string, std::vector<std::unique_ptr<rl::common::IState>>> edges_;
         std::map<std::string, float> ns_;
+        std::map<std::string, float> ws_;
         std::map<std::string, std::vector<float>> nsa_;
         std::map<std::string, std::vector<float>> wsa_;
         std::map<std::string, std::vector<float>> psa_;
@@ -45,6 +46,7 @@ namespace rl::deeplearning
         std::vector<const rl::common::IState *> get_rollouts();
         void evaluate_collected_states(std::tuple<std::vector<float>,std::vector<float>>& evaluations_tuple);
         std::vector<float> get_probs(const rl::common::IState *state_ptr);
+        float get_evaluation(const rl::common::IState *state_ptr);
         ~AmctsSubTree();
     };
 

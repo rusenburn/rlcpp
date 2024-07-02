@@ -4,6 +4,8 @@ project(${This})
 
 set(SourceFiles 
     main.cpp
+    damma/damma_ui_windows.cpp
+    damma/damma_ui.cpp
     othello/othello_ui.cpp
     othello/othello_ui_windows.cpp
     walls/walls_ui.cpp

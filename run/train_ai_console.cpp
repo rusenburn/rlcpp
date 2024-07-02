@@ -6,6 +6,7 @@
 #include <games/othello.hpp>
 #include <games/english_draughts.hpp>
 #include <games/walls.hpp>
+#include <games/damma.hpp>
 
 namespace rl::run
 {
@@ -55,6 +56,9 @@ namespace rl::run
             break;
         case WALLS:
             std::cout << "Walls";
+            break;
+        case DAMMA:
+            std::cout << "Damma";
             break;
         default:
             std::cout << "Default";
@@ -221,6 +225,9 @@ namespace rl::run
         case WALLS:
             return rl::games::WallsState::initialize();
             break;
+        case DAMMA:
+            return rl::games::DammaState::initialize();
+            break;
         default:
             return rl::games::OthelloState::initialize();
             break;
@@ -255,6 +262,9 @@ namespace rl::run
         case WALLS:
             game_name = "Walls";
             break;
+        case DAMMA:
+            game_name = "DAMMA";
+            break;
         default:
             game_name = "Default";
             break;
@@ -264,6 +274,7 @@ namespace rl::run
         std::cout << "[1] Othello";
         std::cout << "[2] English Draughts";
         std::cout << "[3] Walls";
+        std::cout << "[4] Damma";
         std::cout << "Enter new value: ";
         std::cin >> state_choice_;
     }

@@ -1,6 +1,7 @@
 #include <raylib.h>
 #include "othello/othello_ui.hpp"
 #include "walls/walls_ui.hpp"
+#include "damma/damma_ui.hpp"
 
 
 int main(int argc, char const *argv[])
@@ -11,7 +12,7 @@ int main(int argc, char const *argv[])
     constexpr int WINDOW_H = 720;
     constexpr int FPS = 12;
     
-    rl::ui::WallsUi ui{WINDOW_W, WINDOW_H};
+    rl::ui::DammaUI ui{WINDOW_W, WINDOW_H};
 
     InitWindow(WINDOW_W, WINDOW_H, "Reinforcement Learning");
     SetTargetFPS(FPS);

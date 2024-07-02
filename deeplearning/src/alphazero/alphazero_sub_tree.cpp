@@ -20,6 +20,7 @@ namespace rl::deeplearning
           states_{},
           edges_{},
           ns_{},
+          ws_{},
           nsa_{},
           wsa_{},
           psa_{},
@@ -110,6 +111,7 @@ namespace rl::deeplearning
         visited_path.push_back({short_state, best_action, player});
         nsa_.at(short_state).at(best_action) += default_n_;
         ns_.at(short_state) += default_n_;
+        ws_.at(short_state) += default_w_;
         wsa_.at(short_state).at(best_action) += default_w_;
         simulate_once(new_state_ptr, visited_path);
     }
@@ -176,6 +178,7 @@ namespace rl::deeplearning
         std::vector<bool> action_mask = state_ptr->actions_mask();
         masks_[short_state] = action_mask;
         ns_[short_state] = 0;
+        ws_[short_state] = 0;
         nsa_[short_state] = std::vector<float>(n_game_actions_, 0.0f);
         wsa_[short_state] = std::vector<float>(n_game_actions_, 0.0f);
         // edges_[short_state] = std::move(std::vector<std::unique_ptr<rl::common::State>>(n_game_actions_, std::unique_ptr<rl::common::State>(nullptr)));
@@ -279,9 +282,9 @@ namespace rl::deeplearning
         }
 
         float sum_probs{0.0};
-        for(auto p_t: probs_with_temp)
+        for (auto p_t : probs_with_temp)
         {
-            sum_probs+=p_t;
+            sum_probs += p_t;
         }
 
         if (sum_probs < 1.0f - 1e-3f || sum_probs > 1.0f + 1e-3f)
@@ -289,46 +292,34 @@ namespace rl::deeplearning
             std::runtime_error("action probabilities do not equal to one");
         }
 
-        if(sum_probs == NAN)
+        if (sum_probs == NAN)
         {
             std::cout << "NAN probs are found returning probs";
             return probs;
-        }else
+        }
+        else
         {
             return probs_with_temp;
         }
-        // std::vector<float> probs_with_temperature{};
-        // probs_with_temperature.reserve(n_game_actions_);
-        // float sum_action_visits{0.0f};
-        // float sum_actions_with_temperature{0.0f};
-        // for (auto &a : actions_visits)
-        // {
-        //     sum_action_visits += a;
-        // }
-        // for (auto &a : actions_visits)
-        // {
-        //     float p = powf(a / sum_action_visits, 1.0f / temperature_);
-        //     sum_actions_with_temperature += p;
-        //     probs_with_temperature.emplace_back(p);
-        // }
-
-        // for (auto &prob : probs_with_temperature)
-        // {
-        //     prob /= sum_actions_with_temperature;
-        // }
-        // // just assert that actions probs sums to 1 almost
-        // sum_actions_with_temperature = 0.0f;
-        // for (const auto &prob : probs_with_temperature)
-        // {
-        //     sum_actions_with_temperature += prob;
-        // }
-        // if (sum_actions_with_temperature < 1.0f - 1e-3f || sum_actions_with_temperature > 1.0f + 1e-3f)
-        // {
-        //     std::runtime_error("action probabilities do not equal to one");
-        // }
-        // return probs_with_temperature;
     }
 
+    float AmctsSubTree::get_evaluation(const rl::common::IState *root_ptr)
+    {
+        if (!root_ptr)
+        {
+            std::runtime_error("Trying to get evaluation of nullptr state");
+        }
+        
+        std::string state_short = root_ptr->to_short();
+        float n = ns_.at(state_short);
+        if (n <= 0)
+        {
+            std::runtime_error("Trying to get evaluation of with zero or negative total visits");
+        }
+        float w = ws_.at(state_short);
+        // float win_ratio = (w + n) / (2 * n);
+        return w/n;
+    }
     void AmctsSubTree::evaluate_collected_states(std::tuple<std::vector<float>, std::vector<float>> &evaluations_tuple)
     {
         int n_states = static_cast<int>(rollouts_.size());
@@ -384,6 +375,7 @@ namespace rl::deeplearning
             auto &state_short = info.state_short;
             float score = info.player == final_player ? final_result : -final_result;
             ns_.at(state_short) += 1 - default_n_;
+            ws_.at(state_short) += score - default_w_;
             nsa_.at(state_short).at(info.action) += 1 - default_n_;
             wsa_.at(state_short).at(info.action) += score - default_w_;
             visited_path.pop_back();

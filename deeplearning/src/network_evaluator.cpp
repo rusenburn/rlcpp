@@ -93,8 +93,8 @@ namespace rl::deeplearning
 
         probs_out = std::vector<float>(legal_probs_tensor.data_ptr<float>(), legal_probs_tensor.data_ptr<float>() + legal_probs_tensor.numel());
         values_out = std::vector<float>(values_tensor.data_ptr<float>(), values_tensor.data_ptr<float>() + values_tensor.numel());
-        wdl_tensor = wdl_tensor.cpu();
-        auto wdls_vec = std::vector<float>(wdl_tensor.data_ptr<float>(), wdl_tensor.data_ptr<float>() + wdl_tensor.numel());
+        // wdl_tensor = wdl_tensor.cpu();
+        // auto wdls_vec = std::vector<float>(wdl_tensor.data_ptr<float>(), wdl_tensor.data_ptr<float>() + wdl_tensor.numel());
     }
 
     std::unique_ptr<rl::players::IEvaluator> NetworkEvaluator::clone() const

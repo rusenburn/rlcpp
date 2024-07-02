@@ -8,6 +8,7 @@ set(SourceFiles
     src/match.cpp
     src/player.cpp
     src/random.cpp
+    src/utils.cpp
     )
 set(HeaderFiles )
 add_library(${This} STATIC ${SourceFiles} ${HeaderFiles})

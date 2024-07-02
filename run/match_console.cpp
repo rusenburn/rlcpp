@@ -10,6 +10,7 @@
 #include <games/othello.hpp>
 #include <games/english_draughts.hpp>
 #include <games/walls.hpp>
+#include <games/damma.hpp>
 
 namespace rl::run
 {
@@ -131,6 +132,7 @@ namespace rl::run
             std::cout << "[2] Othello\n";
             std::cout << "[3] English  Draughts";
             std::cout << "[4] Walls";
+            std::cout << "[5] DAMMA";
 
             std::cout << std::endl;
 
@@ -151,6 +153,8 @@ namespace rl::run
             case 4:
                 state_index_ = WALLS_GAME;
                 break;
+            case 5:
+                state_index_ = DAMMA_GAME;
             default:
                 break;
             }
@@ -343,6 +347,9 @@ namespace rl::run
             break;
         case WALLS_GAME:
             return rl::games::WallsState::initialize();
+            break;
+        case DAMMA_GAME:
+            return rl::games::DammaState::initialize();
             break;
         default:
             throw "";
