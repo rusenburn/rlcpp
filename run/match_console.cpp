@@ -11,6 +11,7 @@
 #include <games/english_draughts.hpp>
 #include <games/walls.hpp>
 #include <games/damma.hpp>
+#include <games/santorini.hpp>
 
 namespace rl::run
 {
@@ -130,9 +131,10 @@ namespace rl::run
             std::cout << "[0] Nothing, back to previous menu\n";
             std::cout << "[1] Tic Tac Toe\n";
             std::cout << "[2] Othello\n";
-            std::cout << "[3] English  Draughts";
-            std::cout << "[4] Walls";
-            std::cout << "[5] DAMMA";
+            std::cout << "[3] English  Draughts\n";
+            std::cout << "[4] Walls\n";
+            std::cout << "[5] DAMMA\n";
+            std::cout << "[6] Santorini\n";
 
             std::cout << std::endl;
 
@@ -155,6 +157,10 @@ namespace rl::run
                 break;
             case 5:
                 state_index_ = DAMMA_GAME;
+                break;
+            case 6:
+                state_index_ = SANTORINI_GAME;
+                break;
             default:
                 break;
             }
@@ -350,6 +356,9 @@ namespace rl::run
             break;
         case DAMMA_GAME:
             return rl::games::DammaState::initialize();
+            break;
+        case SANTORINI_GAME:
+            return rl::games::SantoriniState::initialize();
             break;
         default:
             throw "";

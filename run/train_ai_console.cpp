@@ -7,6 +7,7 @@
 #include <games/english_draughts.hpp>
 #include <games/walls.hpp>
 #include <games/damma.hpp>
+#include <games/santorini.hpp>
 
 namespace rl::run
 {
@@ -46,22 +47,25 @@ namespace rl::run
         switch (state_choice_)
         {
         case TICTACTOE:
-            std::cout << "Tic Tac Toe";
+            std::cout << "Tic Tac Toe\n";
             break;
         case OTHELLO:
-            std::cout << "Othello";
+            std::cout << "Othello\n";
             break;
         case ENGLISH_DRAUGHTS:
-            std::cout << "English Draughts";
+            std::cout << "English Draughts\n";
             break;
         case WALLS:
-            std::cout << "Walls";
+            std::cout << "Walls\n";
             break;
         case DAMMA:
-            std::cout << "Damma";
+            std::cout << "Damma\n";
+            break;
+        case SANTORINI:
+            std::cout << "Santorini\n";
             break;
         default:
-            std::cout << "Default";
+            std::cout << "Default\n";
             break;
         }
         std::cout << '\n';
@@ -228,6 +232,9 @@ namespace rl::run
         case DAMMA:
             return rl::games::DammaState::initialize();
             break;
+        case SANTORINI:
+            return rl::games::SantoriniState::initialize();
+            break;
         default:
             return rl::games::OthelloState::initialize();
             break;
@@ -265,16 +272,20 @@ namespace rl::run
         case DAMMA:
             game_name = "DAMMA";
             break;
+        case SANTORINI:
+            game_name = "Santorini";
+            break;
         default:
             game_name = "Default";
             break;
         }
         std::cout << "Game (" << game_name.c_str() << ")" << std::endl;
-        std::cout << "[0] Tic Tac Toe";
-        std::cout << "[1] Othello";
-        std::cout << "[2] English Draughts";
-        std::cout << "[3] Walls";
-        std::cout << "[4] Damma";
+        std::cout << "[0] Tic Tac Toe\n";
+        std::cout << "[1] Othello\n";
+        std::cout << "[2] English Draughts\n";
+        std::cout << "[3] Walls\n";
+        std::cout << "[4] Damma\n";
+        std::cout << "[5] Santorini\n";
         std::cout << "Enter new value: ";
         std::cin >> state_choice_;
     }

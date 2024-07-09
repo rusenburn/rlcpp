@@ -20,6 +20,7 @@ namespace rl::run
         static constexpr int ENGLISH_DRAUGHTS = 2;
         static constexpr int WALLS = 3;
         static constexpr int DAMMA = 4;
+        static constexpr int SANTORINI = 5;
 
         int state_choice_ {1};
         int n_iterations_{20};

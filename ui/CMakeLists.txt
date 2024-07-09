@@ -8,6 +8,8 @@ set(SourceFiles
     damma/damma_ui.cpp
     othello/othello_ui.cpp
     othello/othello_ui_windows.cpp
+    santorini/santorini_ui.cpp
+    santorini/santorini_ui_windows.cpp
     walls/walls_ui.cpp
     walls/walls_ui_windows.cpp
     IGameui.cpp

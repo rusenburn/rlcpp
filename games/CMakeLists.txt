@@ -7,6 +7,7 @@ set(SourceFiles
     src/english_draughts.cpp
     src/tictactoe.cpp
     src/othello.cpp
+    src/santorini.cpp
     src/walls.cpp
     )
 set(HeaderFiles )
