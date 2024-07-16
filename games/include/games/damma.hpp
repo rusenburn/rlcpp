@@ -102,6 +102,7 @@ namespace rl::games
         std::vector<bool> actions_mask() const override;
         std::unique_ptr<DammaState> clone_state() const;
         std::unique_ptr<rl::common::IState> clone() const override;
+        void get_symmetrical_obs_and_actions(std::vector<float> const &obs, std::vector<float> const &actions_distribution, std::vector<std::vector<float>> &out_syms, std::vector<std::vector<float>> &out_actions_distribution)const override;
         static std::tuple<int, int, int, int> decode_action(int action);
         static int encode_action(int row, int col, int target_row, int target_col);
         static void swap_board_view(Board &board);

@@ -23,6 +23,7 @@ set(SourceFiles
     src/alphazero/networks/smallnn.cpp
     src/alphazero/networks/squeeze_and_excite.cpp
     src/alphazero/alphazero_sub_tree.cpp
+    src/alphazero/alphazero_sub_tree2.cpp
     src/alphazero/alphazero.cpp
     src/network_evaluator.cpp
     )
@@ -44,21 +45,27 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
-        ${TORCH_LIBRARIES}
         common
         players
         games
     PRIVATE
+        ${TORCH_LIBRARIES}
     )
 
-# The following code block is suggested to be used on Windows.
-# According to https://github.com/pytorch/pytorch/issues/25457,
-# the DLLs need to be copied to avoid memory errors.
-if (MSVC)
-  file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
-  add_custom_command(TARGET ${PROJECT_NAME}
-                     POST_BUILD
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                     ${TORCH_DLLS}
-                     $<TARGET_FILE_DIR:${PROJECT_NAME}>)
-endif (MSVC)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+# # The following code block is suggested to be used on Windows.
+# # According to https://github.com/pytorch/pytorch/issues/25457,
+# # the DLLs need to be copied to avoid memory errors.
+# if (MSVC)
+#   file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+#   add_custom_command(TARGET ${PROJECT_NAME}
+#                      POST_BUILD
+#                      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#                      ${TORCH_DLLS}
+#                      $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+                     
+# endif (MSVC)

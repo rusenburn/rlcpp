@@ -5,6 +5,7 @@
 #include "networks/az.hpp"
 #include <common/state.hpp>
 #include "alphazero_sub_tree.hpp"
+#include "alphazero_sub_tree2.hpp"
 
 namespace rl::deeplearning::alphazero
 {
@@ -30,7 +31,7 @@ namespace rl::deeplearning::alphazero
         std::vector<float> all_probabilities_{};
         std::vector<float> all_wdls_{};
         std::vector<std::unique_ptr<rl::common::IState>> states_ptrs_{};
-        std::vector<std::unique_ptr<AmctsSubTree>> subtrees_{};
+        std::vector<std::unique_ptr<AmctsSubTree2>> subtrees_{};
         std::vector<std::vector<float>> episode_obsevations_{};
         std::vector<std::vector<float>> episode_probs_{};
         std::vector<std::vector<float>> episode_wdls_{};
@@ -42,7 +43,8 @@ namespace rl::deeplearning::alphazero
         static torch::Tensor cross_entropy_loss_(torch::Tensor &target, torch::Tensor &prediction);
         void collect_data();
         void end_subtree(int subtree_id, int last_player, float result);
-        std::unique_ptr<AmctsSubTree> get_new_subtree_ptr();
+        std::unique_ptr<AmctsSubTree2> get_new_subtree_ptr();
+        
 
     public:
         AlphaZero(

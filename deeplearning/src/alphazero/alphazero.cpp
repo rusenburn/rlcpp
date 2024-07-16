@@ -20,7 +20,8 @@ namespace rl::deeplearning::alphazero
     constexpr float N_VISITS = 1.0f;
     constexpr float N_WINS = -1.0f;
     constexpr float EPS = 1e-4f;
-    constexpr int N_TREES = 8;
+    constexpr int N_TREES = 64;
+    constexpr int N_SUB_TREE_ASYNC = 1;
     constexpr int N_COMPLETE_TO_END = N_TREES / 4;
     constexpr float NO_RESIGN_THRESHOLD = -0.8f;
     constexpr int MINIMUM_STEPS = 30;
@@ -111,26 +112,6 @@ namespace rl::deeplearning::alphazero
         int cols = observation_shape.at(2);
         int observation_size = channels * rows * cols;
 
-        // // prepare data collection vectors
-        // std::vector<float> observations{};
-        // std::vector<float> probabilities{};
-        // std::vector<float> wdls{}; // wins draw losses
-
-        // std::vector<std::unique_ptr<rl::common::IState>> states_ptrs{};
-        // std::vector<std::unique_ptr<AmctsSubTree>> subtrees{};
-        // std::vector<std::vector<float>> env_obsevations{};
-        // std::vector<std::vector<float>> env_probs{};
-        // std::vector<std::vector<float>> env_wdls{};
-        // std::vector<std::vector<int>> env_players{};
-        // for (int i = 0; i < N_TREES; i++)
-        // {
-        //     states_ptrs.push_back(initial_state_ptr_->reset());
-        //     subtrees.push_back(get_new_subtree_ptr());
-        //     env_obsevations.push_back({});
-        //     env_probs.push_back({});
-        //     env_wdls.push_back({});
-        //     env_players.push_back({});
-        // }
         int iteration{0};
         while (iteration < n_iterations_)
         {
@@ -378,7 +359,7 @@ namespace rl::deeplearning::alphazero
             {
                 auto &subtree = subtrees_.at(i);
                 auto &state = states_ptrs_.at(i);
-                for (int j = 0; j < N_ASYNC; j++)
+                for (int j = 0; j < N_SUB_TREE_ASYNC; j++)
                 {
                     subtree->roll(state.get());
                 }
@@ -418,7 +399,7 @@ namespace rl::deeplearning::alphazero
                 auto &current_evaluation_tuple = trees_evaluations.at(i);
                 current_sub_tree->evaluate_collected_states(current_evaluation_tuple);
             }
-            trees_n_simulations += N_ASYNC;
+            trees_n_simulations += N_SUB_TREE_ASYNC;
 
             if (trees_n_simulations < n_sims_)
             {
@@ -433,7 +414,9 @@ namespace rl::deeplearning::alphazero
                 episode_players_.at(i).push_back(current_player);
                 std::vector<float> state_probs = subtree->get_probs(state_ptr.get());
                 float ev = subtree->get_evaluation(state_ptr.get());
-                for (float cell : state_ptr->get_observation())
+
+                auto current_obs = state_ptr->get_observation();
+                for (float cell : current_obs)
                 {
                     episode_obsevations_.at(i).push_back(cell);
                 }
@@ -442,11 +425,44 @@ namespace rl::deeplearning::alphazero
                     episode_probs_.at(i).push_back(p);
                 }
 
+                std::vector<std::vector<float>> obs_syms_vector;
+                std::vector<std::vector<float>> probs_sym_vector;
+                state_ptr->get_symmetrical_obs_and_actions(current_obs, state_probs, obs_syms_vector, probs_sym_vector);
+                if (obs_syms_vector.size() != probs_sym_vector.size())
+                {
+                    throw std::runtime_error("alphazero number of symmetrical observations and symmetrical actions are not equal");
+                }
+
+                for (auto &obs_sym : obs_syms_vector)
+                {
+                    for (float cell : obs_sym)
+                    {
+                        episode_obsevations_.at(i).push_back(cell);
+                    }
+                    // push current player equal to the number of symmertical observations
+                    // wdl is counting on it
+                    episode_players_.at(i).push_back(current_player);
+                }
+
+                for (auto &probs_sym : probs_sym_vector)
+                {
+                    for (float p : probs_sym)
+                    {
+                        episode_probs_.at(i).push_back(p);
+                    }
+                }
+
                 bool is_complete_to_end = i < N_COMPLETE_TO_END;
+                /*
+                should resign if all these condition is met:
+                * if minimum number of steps is played and
+                * if this sub tree is not forced to complete to end and
+                * if the current state evaluation is too low
+                */
                 if (episode_steps_.at(i) >= MINIMUM_STEPS && is_complete_to_end == false && ev < NO_RESIGN_THRESHOLD)
                 {
                     int last_player = state_ptr->player_turn();
-                    float result = -1;
+                    float result = -1.0f;
                     end_subtree(i, last_player, result);
                     completed_episodes++;
                 }
@@ -505,18 +521,22 @@ namespace rl::deeplearning::alphazero
             all_wdls_.push_back(v);
         }
 
-        // reset everything belong to this state
+        // reset everything belongs to this state
         episode_obsevations_.at(i).clear();
+
         episode_players_.at(i).clear();
+
         episode_probs_.at(i).clear();
+
         episode_wdls_.at(i).clear();
+
         episode_steps_.at(i) = 0;
 
         subtrees_.at(i) = get_new_subtree_ptr();
         states_ptrs_.at(i) = initial_state_ptr_->reset();
     }
-    std::unique_ptr<AmctsSubTree> AlphaZero::get_new_subtree_ptr()
+    std::unique_ptr<AmctsSubTree2> AlphaZero::get_new_subtree_ptr()
     {
-        return std::make_unique<AmctsSubTree>(n_game_actions_, 2.0f, 1.0f, N_VISITS, N_WINS);
+        return std::make_unique<AmctsSubTree2>(n_game_actions_, 2.0f, 1.0f, N_VISITS, N_WINS);
     }
 } // namespace rl::DeepLearning::alphazero

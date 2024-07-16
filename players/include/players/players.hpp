@@ -8,3 +8,4 @@
 #include "random_action_player.hpp"
 #include "uct_player.hpp"
 #include "evaluator_player.hpp"
+#include "lm_mcts_player.hpp"

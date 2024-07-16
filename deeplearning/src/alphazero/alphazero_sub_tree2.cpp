@@ -1,116 +1,46 @@
-#include <players/amcts.hpp>
-
 #include <cmath>
 #include <stdexcept>
-#include <players/amcts.hpp>
-#include <common/random.hpp>
 #include <iostream>
+#include <common/random.hpp>
+#include <deeplearning/alphazero/alphazero_sub_tree2.hpp>
 
-namespace rl::players
+namespace rl::deeplearning
 {
     constexpr float EPS = 1e-8f;
-    Amcts::Amcts(int n_game_actions,
-                 std::unique_ptr<IEvaluator> evaluator_ptr,
-                 float cpuct,
-                 float temperature,
-                 int max_async_simulations,
-                 float default_visits,
-                 float default_wins)
+    AmctsSubTree2::AmctsSubTree2(int n_game_actions,
+                               float cpuct,
+                               float temperature,
+                               float default_visits,
+                               float default_wins)
         : n_game_actions_{n_game_actions},
-          max_async_simulations_{max_async_simulations},
           default_n_{default_visits},
           default_w_{default_wins},
-          evaluator_ptr_{std::move(evaluator_ptr)},
           cpuct_{cpuct},
           temperature_{temperature},
           states_{},
-          edges_{},
-          ns_{},
-          nsa_{},
-          wsa_{},
-          psa_{},
-          masks_{},
-          root_ptr{nullptr},
-          root_player_{-1},
+          values_{},
           rollouts_{}
     {
     }
-    Amcts::~Amcts() = default;
-    std::vector<float> Amcts::search(const rl::common::IState *state_ptr, int minimum_no_simulations, std::chrono::duration<int, std::milli> minimum_duration)
+    AmctsSubTree2::~AmctsSubTree2() = default;
+
+    void AmctsSubTree2::roll(const rl::common::IState *root_ptr)
     {
-        // TODO if should be clearing previous data
-        // states_.clear();
-        // edges_.clear();
-        // ns_.clear();
-        // nsa_.clear();
-        // wsa_.clear();
-        // psa_.clear();
-        // masks_.clear();
-        // rollouts_.clear();
-        // root_ptr = state_ptr->clone();
-        return search_root(state_ptr, minimum_no_simulations, minimum_duration);
+        std::vector<AmctsInfo2> visited_path{};
+        simulate_once(root_ptr, visited_path);
     }
 
-    std::vector<float> Amcts::search_root(const rl::common::IState *root_ptr, int minimum_no_simulations, std::chrono::duration<int, std::milli> minimum_duration)
+    std::vector<const rl::common::IState *> AmctsSubTree2::get_rollouts()
     {
-        if (root_ptr == nullptr)
+        std::vector<const rl::common::IState *> res{};
+        for (int i = 0; i < rollouts_.size(); i++)
         {
-            throw std::runtime_error("root is null ,but being searched by search tree");
+            res.push_back(std::get<0>(rollouts_.at(i)));
         }
-        root_player_ = root_ptr->player_turn();
-
-        // check if it is the root state has only 1 legal action return legal actions
-
-        auto legal_actions = root_ptr->actions_mask();
-        int n_legal_actions = 0;
-        for (bool m : legal_actions)
-        {
-            n_legal_actions += m ? 1 : 0;
-        }
-        if (n_legal_actions == 1)
-        {
-            std::vector<float> res;
-            res.reserve(n_game_actions_);
-            for (bool m : legal_actions)
-            {
-                res.emplace_back(float(m));
-            }
-            return res;
-        }
-
-        auto t_start = std::chrono::high_resolution_clock::now();
-        auto t_end = t_start + minimum_duration;
-
-        int simulations_count{0};
-
-        while (simulations_count <= minimum_no_simulations)
-        {
-            std::vector<AmctsInfo> visited_path{};
-            simulate_once(root_ptr, visited_path);
-            simulations_count++;
-            if (simulations_count % max_async_simulations_ == 0)
-            {
-                evaluate_collected_states();
-            }
-        }
-
-        while (t_end > std::chrono::high_resolution_clock::now())
-        {
-            std::vector<AmctsInfo> visited_path{};
-            simulate_once(root_ptr, visited_path);
-            simulations_count++;
-            if (simulations_count % max_async_simulations_ == 0)
-            {
-                evaluate_collected_states();
-            }
-        }
-
-        evaluate_collected_states();
-        // std::cout << "Amsts: " <<simulations_count << std::endl;
-        return get_probs(root_ptr);
+        return res;
     }
 
-    void Amcts::simulate_once(const rl::common::IState *state_ptr, std::vector<AmctsInfo> &visited_path)
+    void AmctsSubTree2::simulate_once(const rl::common::IState *state_ptr, std::vector<AmctsInfo2> &visited_path)
     {
         if (state_ptr->is_terminal())
         {
@@ -130,13 +60,14 @@ namespace rl::players
         {
             // first visit ( short states are not in state )
             expand_state(state_ptr, short_state);
-            std::vector<bool> actions_mask = masks_.at(short_state);
+            MapValues &state_values = values_.at(short_state);
+            const std::vector<bool> &actions_mask = state_values.masks;
 
             // check if it has more than  1 legal action
             int n_legal_actions{0};
             for (bool m : actions_mask)
             {
-                n_legal_actions += int(m);
+                n_legal_actions += static_cast<int>(m);
             }
             if (n_legal_actions == 1)
             {
@@ -147,7 +78,8 @@ namespace rl::players
                 {
                     probs.emplace_back(float(m));
                 }
-                psa_.at(short_state) = probs;
+                state_values.psa = probs;
+                // psa_.at(short_state) = probs;
             }
             else
             {
@@ -158,14 +90,15 @@ namespace rl::players
 
         // continue down the tree
 
-        int best_action = find_best_action(short_state);
+        MapValues &state_value = values_.at(short_state);
+        int best_action = find_best_action(state_value);
 
-        if (!edges_[short_state].at(best_action)) // check if edge of best action is null
+        if (!state_value.edges.at(best_action)) // check if edge of best action is null
         {
-            edges_[short_state].at(best_action) = state_ptr->step(best_action);
+            state_value.edges.at(best_action) = state_ptr->step(best_action);
         }
 
-        auto new_state_ptr = edges_[short_state].at(best_action).get();
+        auto new_state_ptr = state_value.edges.at(best_action).get();
 
         if (new_state_ptr == nullptr)
         {
@@ -173,22 +106,25 @@ namespace rl::players
         }
 
         visited_path.push_back({short_state, best_action, player});
-        nsa_.at(short_state).at(best_action) += default_n_;
-        ns_.at(short_state) += default_n_;
-        wsa_.at(short_state).at(best_action) += default_w_;
+
+        state_value.nsa.at(best_action) += default_n_;
+        state_value.ns += default_n_;
+        state_value.ws += default_w_;
+        state_value.wsa.at(best_action) += default_w_;
+        
         simulate_once(new_state_ptr, visited_path);
     }
 
-    int Amcts::find_best_action(std::string &short_state)
+    int AmctsSubTree2::find_best_action(MapValues &state_values)
     {
         float max_u = -INFINITY;
         int best_action = -1;
 
-        const auto &wsa_vec = wsa_.at(short_state);
-        const auto &nsa_vec = nsa_.at(short_state);
-        const auto &psa_vec = psa_.at(short_state);
-        const auto &masks = masks_.at(short_state);
-        float current_state_visis = ns_.at(short_state);
+        const auto &wsa_vec = state_values.wsa;
+        const auto &nsa_vec = state_values.nsa;
+        const auto &psa_vec = state_values.psa;
+        const auto &masks = state_values.masks;
+        float current_state_visis = state_values.ns;
 
         for (int action{0}; action < masks.size(); action++)
         {
@@ -230,7 +166,7 @@ namespace rl::players
         }
         return best_action;
     }
-    void Amcts::expand_state(const rl::common::IState *state_ptr, std::string &short_state)
+    void AmctsSubTree2::expand_state(const rl::common::IState *state_ptr, std::string &short_state)
     {
         if (state_ptr->is_terminal())
         {
@@ -239,17 +175,9 @@ namespace rl::players
         states_.insert(short_state);
 
         std::vector<bool> action_mask = state_ptr->actions_mask();
-        masks_[short_state] = action_mask;
-        ns_[short_state] = 0;
-        nsa_[short_state] = std::vector<float>(n_game_actions_, 0.0f);
-        wsa_[short_state] = std::vector<float>(n_game_actions_, 0.0f);
-        // edges_[short_state] = std::move(std::vector<std::unique_ptr<rl::common::State>>(n_game_actions_, std::unique_ptr<rl::common::State>(nullptr)));
-        auto &vec = edges_[short_state];
-        vec.clear();
-        for (int i{0}; i < n_game_actions_; i++)
-        {
-            vec.push_back(std::unique_ptr<rl::common::IState>(nullptr));
-        }
+        auto ns = 0;
+        auto nsa = std::vector<float>(n_game_actions_, 0.0f);
+        auto wsa = std::vector<float>(n_game_actions_, 0.0f);
         std::vector<float> probs{};
         probs.reserve(n_game_actions_);
         float n_legal_actions = 0.0f;
@@ -261,22 +189,36 @@ namespace rl::players
         {
             probs.emplace_back(float(m) / n_legal_actions);
         }
-        psa_[short_state] = probs;
+        auto& a = (values_[short_state] = {});
+        a.masks = action_mask;
+        a.ns = ns;
+        a.ws = 0;
+        a.nsa = nsa;
+        a.wsa = wsa;
+        a.psa = probs;
+
+        auto &vec = a.edges;
+        vec.clear();
+        for (int i{0}; i < n_game_actions_; i++)
+        {
+            vec.push_back(std::unique_ptr<rl::common::IState>(nullptr));
+        }
     }
 
-    void Amcts::add_to_rollouts(const rl::common::IState *state_ptr, std::vector<AmctsInfo> visited_path)
+    void AmctsSubTree2::add_to_rollouts(const rl::common::IState *state_ptr, std::vector<AmctsInfo2> visited_path)
     {
         rollouts_.push_back(std::make_tuple(state_ptr, visited_path));
     }
 
-    std::vector<float> Amcts::get_probs(const rl::common::IState *root_ptr)
+    std::vector<float> AmctsSubTree2::get_probs(const rl::common::IState *root_ptr)
     {
         if (!root_ptr)
         {
             std::runtime_error("Trying to get probabilities with nullptr state");
         }
         std::string state_short = root_ptr->to_short();
-        const auto &actions_visits = nsa_.at(state_short);
+        auto& state_values = values_.at(state_short);
+        const auto &actions_visits = state_values.nsa;
         if (temperature_ == 0.0f)
         {
             // find max action visits
@@ -314,44 +256,77 @@ namespace rl::players
             }
             return probs;
         }
-        std::vector<float> probs_with_temperature{};
-        probs_with_temperature.reserve(n_game_actions_);
-        float sum_action_visits{0.0f};
-        float sum_actions_with_temperature{0.0f};
+        std::vector<float> probs{};
+        probs.reserve(n_game_actions_);
+        float sum_visits{0.0f};
+
         for (auto &a : actions_visits)
         {
-            sum_action_visits += a;
+            sum_visits += a;
         }
         for (auto &a : actions_visits)
         {
-            float p = powf(a / sum_action_visits, 1.0f / temperature_);
-            sum_actions_with_temperature += p;
-            probs_with_temperature.emplace_back(p);
+            float p = a / sum_visits;
+            probs.emplace_back(p);
+        }
+        std::vector<float> probs_with_temp{};
+
+        probs_with_temp.reserve(n_game_actions_);
+        float sum_probs_with_temp{0.0f};
+
+        for (auto p : probs)
+        {
+            float p_t = powf(p, 1 / temperature_);
+            probs_with_temp.emplace_back(p_t);
+            sum_probs_with_temp += p_t;
+        }
+        for (auto &p_t : probs_with_temp)
+        {
+            p_t = p_t / sum_probs_with_temp;
         }
 
-        for (auto &prob : probs_with_temperature)
+        float sum_probs{0.0};
+        for (auto p_t : probs_with_temp)
         {
-            prob /= sum_actions_with_temperature;
+            sum_probs += p_t;
         }
-        // just assert that actions probs sums to 1 almost
-        sum_actions_with_temperature = 0.0f;
-        for (const auto &prob : probs_with_temperature)
-        {
-            sum_actions_with_temperature += prob;
-        }
-        if (sum_actions_with_temperature < 1.0f - 1e-3f || sum_actions_with_temperature > 1.0f + 1e-3f)
+
+        if (sum_probs < 1.0f - 1e-3f || sum_probs > 1.0f + 1e-3f)
         {
             std::runtime_error("action probabilities do not equal to one");
         }
-        return probs_with_temperature;
+
+        if (sum_probs == NAN)
+        {
+            std::cout << "NAN probs are found returning probs";
+            return probs;
+        }
+        else
+        {
+            return probs_with_temp;
+        }
     }
 
-    void Amcts::evaluate_collected_states()
+    float AmctsSubTree2::get_evaluation(const rl::common::IState *root_ptr)
     {
-        if (rollouts_.size() == 0)
+        if (!root_ptr)
         {
-            return;
+            std::runtime_error("Trying to get evaluation of nullptr state");
         }
+        
+        std::string state_short = root_ptr->to_short();
+        auto &state_value_ref = values_.at(state_short);
+        float n = state_value_ref.ns;
+        if (n <= 0)
+        {
+            std::runtime_error("Trying to get evaluation of with zero or negative total visits");
+        }
+        float w = state_value_ref.ws;
+        // float win_ratio = (w + n) / (2 * n);
+        return w/n;
+    }
+    void AmctsSubTree2::evaluate_collected_states(std::tuple<std::vector<float>, std::vector<float>> &evaluations_tuple)
+    {
         int n_states = static_cast<int>(rollouts_.size());
         std::vector<const rl::common::IState *> states_ptrs(n_states, nullptr);
         for (int i{0}; i < n_states; i++)
@@ -359,7 +334,6 @@ namespace rl::players
             // states_ptrs.push_back(std::get<0>(rollouts_.at(i)));
             states_ptrs.at(i) = std::get<0>(rollouts_.at(i));
         }
-        auto evaluations_tuple = evaluator_ptr_->evaluate(states_ptrs);
         std::vector<float> &probs = std::get<0>(evaluations_tuple);
         std::vector<float> &values = std::get<1>(evaluations_tuple);
 
@@ -377,9 +351,10 @@ namespace rl::players
 
             // check if we can use the visited_path;
             auto state_short = state_ptr->to_short();
-            auto actions_mask = masks_.at(state_short);
+            auto &state_value_ref = values_.at(state_short);
+            const auto actions_mask = state_value_ref.masks;
 
-            std::vector<float> &tree_probs_ref = psa_.at(state_short);
+            std::vector<float> &tree_probs_ref = state_value_ref.psa;
             float probs_sum{0.0f};
             for (int j{0}; j < n_game_actions_; j++)
             {
@@ -398,16 +373,19 @@ namespace rl::players
         rollouts_.clear();
     }
 
-    void Amcts::backpropogate(std::vector<AmctsInfo> &visited_path, float final_result, int final_player)
+    void AmctsSubTree2::backpropogate(std::vector<AmctsInfo2> &visited_path, float final_result, int final_player)
     {
         while (visited_path.size() != 0)
         {
             auto &info = visited_path.at(visited_path.size() - 1);
             auto &state_short = info.state_short;
             float score = info.player == final_player ? final_result : -final_result;
-            ns_.at(state_short) += 1 - default_n_;
-            nsa_.at(state_short).at(info.action) += 1 - default_n_;
-            wsa_.at(state_short).at(info.action) += score - default_w_;
+            auto &state_value_ref = values_.at(state_short);
+
+            state_value_ref.ns += 1 - default_n_;
+            state_value_ref.nsa.at(info.action) += 1 - default_n_;
+            state_value_ref.wsa.at(info.action) += score - default_w_;
+            state_value_ref.ws +=score - default_w_;
             visited_path.pop_back();
         }
     }

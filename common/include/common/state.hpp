@@ -9,14 +9,13 @@ namespace rl::common
     class IState
     {
     public:
-        /// @brief 
+        /// @brief
         /// @param action the action performed by the player to transition the state to the next state
         /// @return a unique_ptr of the next state
         virtual std::unique_ptr<IState> step(int action) const = 0;
 
-
         /// @brief returns an initial state
-        /// @return 
+        /// @return
         virtual std::unique_ptr<IState> reset() const = 0;
 
         /// @brief renders the state
@@ -30,18 +29,17 @@ namespace rl::common
         /// @return a float indicates the relative reward for the current player
         virtual float get_reward() const = 0;
 
-        /// @brief 
+        /// @brief
         /// @return gets a copy of the observation for the state
         virtual std::vector<float> get_observation() const = 0;
-
 
         /// @brief short observation , used as a hashkey for maps
         /// @return a string
         virtual std::string to_short() const = 0;
 
-        /// @brief 
-        /// @return 
-        virtual std::array<int,3> get_observation_shape() const = 0;
+        /// @brief
+        /// @return
+        virtual std::array<int, 3> get_observation_shape() const = 0;
 
         virtual int get_n_actions() const = 0;
 
@@ -49,9 +47,17 @@ namespace rl::common
 
         virtual std::vector<bool> actions_mask() const = 0;
 
-        /// @brief should return a deep copy for the current state , modifying the copy should not change the current state
-        /// @return 
+        /// @brief should return a deep copy for the current state , modifying the copy should not change the original state
+        /// @return
         virtual std::unique_ptr<IState> clone() const = 0;
+
+        
+        /// @brief outputs symmertical observations and action distribution to the one provided
+        /// @param obs the observation that should be converted
+        /// @param actions_distribution the actions distribution ( probabilities or action mask) to be converted
+        /// @param out_syms gets cleared then all the symmetric observations gets added to this out parameter
+        /// @param out_actions_distribution gets cleared then all the symmetric distributions get added to this out parameter
+        virtual void get_symmetrical_obs_and_actions(std::vector<float> const& obs,std::vector<float> const& actions_distribution, std::vector<std::vector<float>> & out_syms, std::vector<std::vector<float>> & out_actions_distribution) const = 0;
 
         virtual ~IState();
     };

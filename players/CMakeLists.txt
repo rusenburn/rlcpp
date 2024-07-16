@@ -8,6 +8,8 @@ set(SourceFiles
     src/bandits/grave/g.cpp
     src/bandits/grave/grave_node.cpp
     src/bandits/grave/grave.cpp
+    src/bandits/lm_mcts/lm_mcts_node.cpp
+    src/bandits/lm_mcts/lm_mcts.cpp
     src/bandits/mcrave/mcrave.cpp
     src/bandits/mcrave/mcrave_node.cpp
     src/bandits/uct/uct_node.cpp
@@ -19,6 +21,7 @@ set(SourceFiles
     src/grave_player.cpp
     src/g_player.cpp
     src/human_player.cpp
+    src/lm_mcts_player.cpp
     src/mcrave_player.cpp
     src/mcts_player.cpp
     src/mcts.cpp

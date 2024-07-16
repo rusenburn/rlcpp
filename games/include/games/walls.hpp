@@ -75,6 +75,7 @@ namespace rl::games
         std::vector<bool> actions_mask() const override;
         std::unique_ptr<WallsState> clone_state() const;
         std::unique_ptr<rl::common::IState> clone() const override;
+        void get_symmetrical_obs_and_actions(std::vector<float> const &obs, std::vector<float> const &actions_distribution, std::vector<std::vector<float>> &out_syms, std::vector<std::vector<float>> &out_actions_distribution)const override;
         void get_valid_jumps(std::vector<std::vector<bool>> &valid_jumps_out, std::vector<std::vector<std::vector<std::pair<int, int>>>> &valid_builds);
         static int encode_action(int jump_row, int jump_col, int build_row, int build_col);
     };

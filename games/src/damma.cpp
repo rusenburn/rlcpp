@@ -2,6 +2,7 @@
 #include <common/exceptions.hpp>
 #include <sstream>
 #include <iostream>
+
 namespace rl::games
 {
 
@@ -653,6 +654,11 @@ namespace rl::games
         return clone_state();
     }
 
+    void DammaState::get_symmetrical_obs_and_actions(std::vector<float> const &obs, std::vector<float> const &actions_distribution, std::vector<std::vector<float>> &out_syms, std::vector<std::vector<float>> &out_actions_distribution) const
+    {
+        out_syms.clear();
+        out_actions_distribution.clear();
+    }
     std::tuple<int, int, int, int> DammaState::decode_action(int action)
     {
         int target_index = action % (ROWS + COLS - 2);

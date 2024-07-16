@@ -92,6 +92,7 @@ namespace rl::games
         std::vector<bool> actions_mask()const override;
         std::unique_ptr<EnglishDraughtState> clone_state()const ;
         std::unique_ptr<rl::common::IState> clone() const override;
+        void get_symmetrical_obs_and_actions(std::vector<float> const &obs, std::vector<float> const &actions_distribution, std::vector<std::vector<float>> &out_syms, std::vector<std::vector<float>> &out_actions_distribution)const override;
     };
 
 } // namespace rl::games

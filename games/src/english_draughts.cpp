@@ -659,4 +659,10 @@ namespace rl::games
     {
         return clone_state();
     }
+
+    void EnglishDraughtState::get_symmetrical_obs_and_actions(std::vector<float> const &obs, std::vector<float> const &actions_distribution, std::vector<std::vector<float>> &out_syms, std::vector<std::vector<float>> &out_actions_distribution)const
+    {
+        out_syms.clear();
+        out_actions_distribution.clear();
+    }
 } // namespace rl::games

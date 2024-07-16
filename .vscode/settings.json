@@ -88,6 +88,8 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "__nullptr": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "__hash_table": "cpp",
+        "__split_buffer": "cpp"
     }
 }

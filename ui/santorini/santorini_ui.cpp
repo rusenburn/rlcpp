@@ -1,6 +1,8 @@
 #include "santorini_ui.hpp"
 #include <iostream>
 #include <players/random_rollout_evaluator.hpp>
+#include <deeplearning/alphazero/networks/shared_res_nn.hpp>
+#include <filesystem>
 namespace rl::ui
 {
     SantoriniUI::SantoriniUI(int width, int height)
@@ -218,10 +220,13 @@ namespace rl::ui
                 reset_state();
                 current_window_ = SantoriniWindow::game;
                 players_.clear();
-                auto player_g_duration = std::chrono::duration<int, std::milli>(5000);
+                auto players_duration = std::chrono::duration<int, std::milli>(1000);
                 // players_.push_back(std::make_unique<rl::players::HumanPlayer>());
-                players_.push_back(get_random_rollout_player_ptr(3, player_g_duration));
-                players_.push_back(get_random_rollout_player_ptr(3, player_g_duration));
+                // players_.push_back(get_random_rollout_player_ptr(3, player_g_duration));
+                players_.push_back(get_network_amcts_player(3, players_duration,"santorini_strongest_340.pt"));
+                players_.push_back(get_network_amcts_player(3, players_duration*5,"santorini_strongest_220.pt"));
+                // players_.push_back(get_network_amcts_player(3, players_duration*2,"santorini_strongest_120.pt"));
+                // players_.push_back(get_random_rollout_player_ptr(3, player_g_duration));
             }
         }
     }
@@ -346,6 +351,60 @@ namespace rl::ui
     {
         auto ev_ptr = std::make_unique<rl::players::RandomRolloutEvaluator>(state_ptr_->get_n_actions());
         return std::make_unique<rl::players::MctsPlayer>(state_ptr_->get_n_actions(), ev_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f);
+    }
+
+    std::unique_ptr<rl::players::AmctsPlayer> SantoriniUI::get_network_amcts_player(int n_sims, std::chrono::duration<int, std::milli> minimum_duration,std::string load_name)
+    {
+        auto network_ptr = std::make_unique<rl::deeplearning::alphazero::SharedResNetwork>(state_ptr_->get_observation_shape(), state_ptr_->get_n_actions(),
+                                                                                           128, 512, 5);
+        auto device = torch::cuda::is_available() ? torch::kCUDA : torch::kCPU;
+        // const std::string load_name = "santorini_strongest_120.pt";
+        const std::string folder_name = "../checkpoints";
+        std::filesystem::path folder(folder_name);
+        std::filesystem::path file_path;
+        file_path = folder / load_name;
+        network_ptr->load(file_path.string());
+        network_ptr->to(device);
+        auto ev_ptr = std::make_unique<rl::deeplearning::NetworkEvaluator>(std::move(network_ptr), state_ptr_->get_n_actions(), state_ptr_->get_observation_shape());
+        ev_ptr->evaluate(state_ptr_->clone());
+        auto player_ptr = std::make_unique<rl::players::AmctsPlayer>(state_ptr_->get_n_actions(), std::move(ev_ptr), n_sims, minimum_duration, 0.5f, 2.0f, 8);
+        return player_ptr;
+    }
+
+    std::unique_ptr<rl::players::MctsPlayer> SantoriniUI::get_network_mcts_player(int n_sims, std::chrono::duration<int, std::milli> minimum_duration,std::string load_name)
+    {
+        auto network_ptr = std::make_unique<rl::deeplearning::alphazero::SharedResNetwork>(state_ptr_->get_observation_shape(), state_ptr_->get_n_actions(),
+                                                                                           128, 512, 5);
+        auto device = torch::cuda::is_available() ? torch::kCUDA : torch::kCPU;
+        // const std::string load_name = "santorini_strongest_120.pt";
+        const std::string folder_name = "../checkpoints";
+        std::filesystem::path folder(folder_name);
+        std::filesystem::path file_path;
+        file_path = folder / load_name;
+        network_ptr->load(file_path.string());
+        network_ptr->to(device);
+        auto ev_ptr = std::make_unique<rl::deeplearning::NetworkEvaluator>(std::move(network_ptr), state_ptr_->get_n_actions(), state_ptr_->get_observation_shape());
+        ev_ptr->evaluate(state_ptr_->clone());
+        auto player_ptr = std::make_unique<rl::players::MctsPlayer>(state_ptr_->get_n_actions(), std::move(ev_ptr), n_sims, minimum_duration, 0.5f, 2.0f);
+        return player_ptr;
+    }
+
+    std::unique_ptr<rl::players::LMMctsPlayer> SantoriniUI::get_network_lm_mcts_player(int n_sims, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name)
+    {
+            auto network_ptr = std::make_unique<rl::deeplearning::alphazero::SharedResNetwork>(state_ptr_->get_observation_shape(), state_ptr_->get_n_actions(),
+                                                                                           128, 512, 5);
+        auto device = torch::cuda::is_available() ? torch::kCUDA : torch::kCPU;
+        // const std::string load_name = "santorini_strongest_120.pt";
+        const std::string folder_name = "../checkpoints";
+        std::filesystem::path folder(folder_name);
+        std::filesystem::path file_path;
+        file_path = folder / load_name;
+        network_ptr->load(file_path.string());
+        network_ptr->to(device);
+        auto ev_ptr = std::make_unique<rl::deeplearning::NetworkEvaluator>(std::move(network_ptr), state_ptr_->get_n_actions(), state_ptr_->get_observation_shape());
+        ev_ptr->evaluate(state_ptr_->clone());
+        auto player_ptr = std::make_unique<rl::players::LMMctsPlayer>(state_ptr_->get_n_actions(), std::move(ev_ptr), n_sims, minimum_duration, 0.5f, 2.0f);
+        return player_ptr;
     }
 
 } // namespace rl::ui

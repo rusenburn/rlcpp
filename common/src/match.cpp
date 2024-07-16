@@ -3,8 +3,6 @@
 
 #include <common/match.hpp>
 
-
-
 namespace rl::common
 {
     Match::Match(std::unique_ptr<IState> initial_state_ptr, std::unique_ptr<IPlayer> player_1_ptr, std::unique_ptr<IPlayer> player_2_ptr, int n_sets, bool render)
@@ -55,13 +53,13 @@ namespace rl::common
                 continue;
             }
             state_ptr = state_ptr->step(action);
-            if(render_)
+            if (render_)
             {
-                std::cout << "Player" << current_player +1 << " played action " << action << " " << std::endl;
+                std::cout << "Player" << current_player + 1 << " played action " << action << " " << std::endl;
             }
         }
 
-        if(render_)
+        if (render_)
         {
             state_ptr->render();
         }

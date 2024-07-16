@@ -3,11 +3,11 @@ cmake_minimum_required(VERSION 3.10.2 FATAL_ERROR)
 set(This common)
 project(${This})
 set(SourceFiles 
-    src/state.cpp
     src/exceptions.cpp
     src/match.cpp
     src/player.cpp
     src/random.cpp
+    src/state.cpp
     src/utils.cpp
     )
 set(HeaderFiles )

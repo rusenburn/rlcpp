@@ -2,10 +2,11 @@
 #include <common/exceptions.hpp>
 #include <sstream>
 #include <iostream>
-
+#include <array>
 namespace rl::games
 {
-    SantoriniState::SantoriniState(const Board &players,const Board &buildings, SantoriniPhase current_phase, bool is_winning_move, int turn, int current_player, std::optional<std::pair<int, int>> selection)
+
+    SantoriniState::SantoriniState(const Board &players, const Board &buildings, SantoriniPhase current_phase, bool is_winning_move, int turn, int current_player, std::optional<std::pair<int, int>> selection)
         : players_(players),
           buildings_(buildings),
           current_phase_{current_phase},
@@ -13,7 +14,8 @@ namespace rl::games
           turn_{turn},
           current_player_{current_player},
           selection_(selection)
-    {}
+    {
+    }
 
     SantoriniState::~SantoriniState() = default;
 
@@ -583,6 +585,78 @@ namespace rl::games
     std::unique_ptr<rl::common::IState> SantoriniState::clone() const
     {
         return clone_state();
+    }
+    void SantoriniState::get_symmetrical_obs_and_actions(std::vector<float> const &obs, std::vector<float> const &actions_distribution, std::vector<std::vector<float>> &out_syms, std::vector<std::vector<float>> &out_actions_distribution) const
+    {
+        if (obs.size() != CHANNELS * ROWS * COLS)
+        {
+            std::stringstream ss;
+            ss << "get_symmetrical_obs_and_actions requires an observation with size of " << CHANNELS * ROWS * COLS;
+            ss << " but a size of " << obs.size() << " was passed.";
+            throw std::runtime_error(ss.str());
+        }
+        out_syms.clear();
+        out_actions_distribution.clear();
+
+        // add first sym
+        out_syms.push_back({});
+        std::vector<float> &first_obs = out_syms.at(0);
+        first_obs.reserve(obs.size());
+        for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+        {
+            float value = obs.at(santorini_syms::FIRST_OBS_SYM.at(i));
+            first_obs.emplace_back(value);
+        }
+
+        // add first actions sym
+        out_actions_distribution.push_back({});
+        std::vector<float> &first_actions = out_actions_distribution.at(0);
+        first_actions.reserve(N_ACTIONS);
+        for (int i = 0; i < N_ACTIONS; i++)
+        {
+            float value = actions_distribution.at(santorini_syms::FIRST_ACTIONS_SYM.at(i));
+            first_actions.emplace_back(value);
+        }
+
+        // add second sym
+        out_syms.push_back({});
+        std::vector<float> &second_obs = out_syms.at(1);
+        second_obs.reserve(obs.size());
+        for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+        {
+            float value = obs.at(santorini_syms::SECOND_OBS_SYM.at(i));
+            second_obs.emplace_back(value);
+        }
+
+        // add second action sym
+        out_actions_distribution.push_back({});
+        std::vector<float> &second_actions = out_actions_distribution.at(1);
+        second_actions.reserve(N_ACTIONS);
+        for (int i = 0; i < N_ACTIONS; i++)
+        {
+            float value = actions_distribution.at(santorini_syms::SECOND_ACTIONS_SYM.at(i));
+            second_actions.emplace_back(value);
+        }
+
+        // add third sym
+        out_syms.push_back({});
+        std::vector<float> &third_obs = out_syms.at(2);
+        third_obs.reserve(obs.size());
+        for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+        {
+            float value = obs.at(santorini_syms::THIRD_OBS_SYM.at(i));
+            third_obs.emplace_back(value);
+        }
+
+        // add third action sym
+        out_actions_distribution.push_back({});
+        std::vector<float> &third_actions = out_actions_distribution.at(2);
+        third_actions.reserve(N_ACTIONS);
+        for (int i = 0; i < N_ACTIONS; i++)
+        {
+            float value = actions_distribution.at(santorini_syms::THIRD_ACTIONS_SYM.at(i));
+            third_actions.emplace_back(value);
+        }
     }
 
     SantoriniPhase SantoriniState::get_current_phase() const

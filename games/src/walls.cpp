@@ -343,6 +343,12 @@ namespace rl::games
         return clone_state();
     }
 
+    void WallsState::get_symmetrical_obs_and_actions(std::vector<float> const &obs, std::vector<float> const &actions_distribution, std::vector<std::vector<float>> &out_syms, std::vector<std::vector<float>> &out_actions_distribution) const
+    {
+        out_syms.clear();
+        out_actions_distribution.clear();
+    }
+
     void WallsState::get_valid_jumps(std::vector<std::vector<bool>> &valid_jumps_out,std::vector<std::vector<std::vector<std::pair<int,int>>>> & valid_builds)
     {
         int player = current_player_;

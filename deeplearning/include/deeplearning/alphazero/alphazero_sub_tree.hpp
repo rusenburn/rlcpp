@@ -2,7 +2,9 @@
 #define RL_DEEPLEARNING_AMCTS_SUBTREE_HPP_
 
 #include <map>
+#include <unordered_map>
 #include <set>
+#include <unordered_set>
 #include <string>
 #include <vector>
 #include <memory>
@@ -22,14 +24,14 @@ namespace rl::deeplearning
         float default_n_, default_w_;
         float cpuct_;
         float temperature_;
-        std::set<std::string> states_;
-        std::map<std::string, std::vector<std::unique_ptr<rl::common::IState>>> edges_;
-        std::map<std::string, float> ns_;
-        std::map<std::string, float> ws_;
-        std::map<std::string, std::vector<float>> nsa_;
-        std::map<std::string, std::vector<float>> wsa_;
-        std::map<std::string, std::vector<float>> psa_;
-        std::map<std::string, std::vector<bool>> masks_;
+        std::unordered_set<std::string> states_;
+        std::unordered_map<std::string, std::vector<std::unique_ptr<rl::common::IState>>> edges_;
+        std::unordered_map<std::string, float> ns_;
+        std::unordered_map<std::string, float> ws_;
+        std::unordered_map<std::string, std::vector<float>> nsa_;
+        std::unordered_map<std::string, std::vector<float>> wsa_;
+        std::unordered_map<std::string, std::vector<float>> psa_;
+        std::unordered_map<std::string, std::vector<bool>> masks_;
         std::vector<std::tuple<const rl::common::IState *, std::vector<AmctsInfo>>> rollouts_;
         
         void simulate_once(const rl::common::IState *state_ptr, std::vector<AmctsInfo> &visited_path);

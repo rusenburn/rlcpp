@@ -2,6 +2,8 @@
 #define RL_SEARCH_TREES_AMCTS_HPP_
 
 #include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <set>
 #include <string>
 #include "evaluator.hpp"
@@ -23,13 +25,13 @@ namespace rl::players
         std::unique_ptr<IEvaluator> evaluator_ptr_;
         float cpuct_;
         float temperature_;
-        std::set<std::string> states_;
-        std::map<std::string, std::vector<std::unique_ptr<rl::common::IState>>> edges_;
-        std::map<std::string, float> ns_;
-        std::map<std::string, std::vector<float>> nsa_;
-        std::map<std::string, std::vector<float>> wsa_;
-        std::map<std::string, std::vector<float>> psa_;
-        std::map<std::string, std::vector<bool>> masks_;
+        std::unordered_set<std::string> states_;
+        std::unordered_map<std::string, std::vector<std::unique_ptr<rl::common::IState>>> edges_;
+        std::unordered_map<std::string, float> ns_;
+        std::unordered_map<std::string, std::vector<float>> nsa_;
+        std::unordered_map<std::string, std::vector<float>> wsa_;
+        std::unordered_map<std::string, std::vector<float>> psa_;
+        std::unordered_map<std::string, std::vector<bool>> masks_;
         rl::common::IState *root_ptr;
         int root_player_;
         std::vector<std::tuple<const rl::common::IState *, std::vector<AmctsInfo>>> rollouts_;
