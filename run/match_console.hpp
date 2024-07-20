@@ -7,6 +7,7 @@
 #include <deeplearning/alphazero/networks/az.hpp>
 #include <deeplearning/network_evaluator.hpp>
 #include "console.hpp"
+#include <common/match.hpp>
 namespace rl::run
 {
     using IState = rl::common::IState;
@@ -80,11 +81,16 @@ namespace rl::run
         // match
         int n_sets_{100};
         bool render_{false};
+        std::shared_ptr<rl::common::Observer<std::unique_ptr<rl::common::IState>&>> observer_;
 
     public:
         MatchConsole(/* args */);
         ~MatchConsole() override;
         void run();
+        void render(std::unique_ptr<rl::common::IState> &state_ptr)
+        {
+            state_ptr->render();
+        }
     };
 } // namespace rl::run
 

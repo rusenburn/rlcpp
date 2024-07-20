@@ -154,7 +154,7 @@ namespace rl::deeplearning::alphazero
                 auto p1_ptr = std::make_unique<rl::players::AmctsPlayer>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 1, 2.0, N_ASYNC, N_VISITS, N_WINS);
                 std::unique_ptr<rl::players::IEvaluator> ev2_ptr{std::make_unique<rl::deeplearning::NetworkEvaluator>(strongest->copy(), n_game_actions_, observation_shape)};
                 auto p2_ptr = std::make_unique<rl::players::AmctsPlayer>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 1, 2.0, N_ASYNC, N_VISITS, N_WINS);
-                rl::common::Match m(test_state_ptr_->reset(), std::move(p1_ptr), std::move(p2_ptr), n_testing_episodes_, false);
+                rl::common::Match m(test_state_ptr_->reset(), p1_ptr.get(), p2_ptr.get(), n_testing_episodes_, false);
                 std::tuple<float, float> tp{m.start()};
                 float p1_score = std::get<0>(tp);
                 float ratio = float(p1_score + n_testing_episodes_) / (2 * n_testing_episodes_);

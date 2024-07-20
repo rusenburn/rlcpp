@@ -11,6 +11,8 @@
 #include <chrono>
 #include "../IGameui.hpp"
 #include <deeplearning/network_evaluator.hpp>
+#include <players/random_rollout_evaluator.hpp>
+#include <deeplearning/alphazero/networks/shared_res_nn.hpp>
 namespace rl::ui
 {
     class SantoriniUI : public IGameui
@@ -26,6 +28,7 @@ namespace rl::ui
         ~SantoriniUI() override;
         void draw_game() override;
         void handle_events() override;
+        
 
     private:
         int width_, height_, cell_size_, padding_, inner_cell_size_;

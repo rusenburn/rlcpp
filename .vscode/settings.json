@@ -91,5 +91,42 @@
         "regex": "cpp",
         "__hash_table": "cpp",
         "__split_buffer": "cpp"
-    }
+    },
+    "cmake.defaultVariants": {
+
+        "buildType": {
+            "default": "debug",
+            "description": "The build type.",
+            "choices": {
+                "debug": {
+                    "short": "Debug",
+                    "long": "Disable optimizations - include debug information.",
+                    "buildType": "Debug",
+                },
+                "release": {
+                    "short": "Release",
+                    "long": "Optimize for speed - exclude debug information.",
+                    "buildType": "Release",
+                },
+                "minsize": {
+                    "short": "MinSizeRel",
+                    "long": "Optimize for smallest binary size - exclude debug information.",
+                    "buildType": "MinSizeRel"
+                },
+                "reldeb": {
+                    "short": "RelWithDebInfo",
+                    "long": "Optimize for speed - include debug information.",
+                    "buildType": "RelWithDebInfo",
+                    
+                    
+                },"releaseInRelease": {
+                    "short": "ReleaseInRelease",
+                    "long": "Optimize for speed - exclude debug information.",
+                    "buildType": "Release",
+                    "buildDirectory": "${workspaceFolder}/build/release",
+                },
+            }
+        }
+    },
+    "cmake.buildDirectory": "${workspaceRoot}/build/${buildType}"
 }

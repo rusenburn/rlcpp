@@ -113,7 +113,10 @@ namespace rl::run
             player_1_duration,
             player_1_n_filters, player_1_fc_dims, player_1_blocks, player_1_load_name)};
 
-        auto match = rl::common::Match(std::move(state_ptr), std::move(player_0), std::move(player_1), n_sets_, render_);
+        auto match = rl::common::Match(std::move(state_ptr), player_0.get(), player_1.get(), n_sets_, render_);
+
+        // std::function<void(std::unique_ptr<rl::common::IState>&)> fn = std::bind(&MatchConsole::render,*this,std::placeholders::_1);
+        // observer_ = match.state_changed_event_.subscribe(fn);
 
         std::cout << "Starting the match ..." << std::endl;
         auto [p_0_score, p_1_score] = match.start();

@@ -17,6 +17,7 @@ namespace rl::ui
         inner_cell_size_ = cell_size_ - 2 * padding_;
         initialize_buttons();
         reset_state();
+        std::this_thread::sleep_for(std::chrono::seconds(1000));
     }
 
     SantoriniUI::~SantoriniUI() = default;
@@ -220,13 +221,13 @@ namespace rl::ui
                 reset_state();
                 current_window_ = SantoriniWindow::game;
                 players_.clear();
-                auto players_duration = std::chrono::duration<int, std::milli>(1000);
-                // players_.push_back(std::make_unique<rl::players::HumanPlayer>());
-                // players_.push_back(get_random_rollout_player_ptr(3, player_g_duration));
+                auto players_duration = std::chrono::milliseconds(1000);
+                
                 players_.push_back(get_network_amcts_player(3, players_duration,"santorini_strongest_340.pt"));
-                players_.push_back(get_network_amcts_player(3, players_duration*5,"santorini_strongest_220.pt"));
+                players_.push_back(get_network_mcts_player(3, players_duration,"santorini_strongest_340.pt"));
                 // players_.push_back(get_network_amcts_player(3, players_duration*2,"santorini_strongest_120.pt"));
                 // players_.push_back(get_random_rollout_player_ptr(3, player_g_duration));
+                // players_.push_back(std::make_unique<rl::players::HumanPlayer>());
             }
         }
     }

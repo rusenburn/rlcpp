@@ -4,10 +4,12 @@ project(${This})
 
 set(SourceFiles 
     main.cpp
+    players_utils.cpp
     damma/damma_ui_windows.cpp
     damma/damma_ui.cpp
     othello/othello_ui.cpp
     othello/othello_ui_windows.cpp
+    santorini/santorini_tournament_ui.cpp
     santorini/santorini_ui.cpp
     santorini/santorini_ui_windows.cpp
     walls/walls_ui.cpp
@@ -15,14 +17,15 @@ set(SourceFiles
     IGameui.cpp
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
-set(CMAKE_PREFIX_PATH "C:/libtorch-win-shared-with-deps-1.12.1+cu116/libtorch")
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    message("###  Using Debug ###")
-    set(CMAKE_PREFIX_PATH "C:/libtorch-win-shared-with-deps-debug-2.2.1+cu118/libtorch")
-    message("### CMAKE_PREFIX PATH ${CMAKE_PREFIX_PATH} ###")
-endif()
+# # set(CMAKE_PREFIX_PATH "C:/libtorch-win-shared-with-deps-1.12.1+cu116/libtorch")
+# set(CMAKE_PREFIX_PATH "C:/libtorch-win-shared-with-deps-2.2.1+cu118/libtorch")
+# if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+#     message("###  Using Debug ###")
+#     set(CMAKE_PREFIX_PATH "C:/libtorch-win-shared-with-deps-debug-2.2.1+cu118/libtorch")
+#     message("### CMAKE_PREFIX PATH ${CMAKE_PREFIX_PATH} ###")
+# endif()
 
 set(CUDNN_LIBRARY_PATH "C:/Program Files/NVIDIA/CUDNN/v8.5.0.96/lib")
 set(CUDNN_INCLUDE_PATH "C:/Program Files/NVIDIA/CUDNN/v8.5.0.96/include")
@@ -69,3 +72,20 @@ if(WIN32)
     )
 endif()
 
+add_custom_command(TARGET ${PROJECT_NAME}
+PRE_BUILD
+COMMAND ${CMAKE_COMMAND} -E make_directory
+${CMAKE_BINARY_DIR}/checkpoints)
+
+file (GLOB CHECKPOINTS "../checkpoints/*.pt")
+# if(CHECKPOINTS)
+# add_custom_command(TARGET ${PROJECT_NAME}
+#                    PRE_BUILD
+#                    COMMAND ${CMAKE_COMMAND} -E make_directory
+#                    ${CMAKE_BINARY_DIR}/checkpoints)
+# add_custom_command(TARGET ${PROJECT_NAME}
+#                    PRE_BUILD
+#                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#                    ${CHECKPOINTS}
+#                    ${CMAKE_BINARY_DIR}/checkpoints)
+# endif(CHECKPOINTS)

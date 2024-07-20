@@ -5,13 +5,13 @@
 
 namespace rl::common
 {
-    Match::Match(std::unique_ptr<IState> initial_state_ptr, std::unique_ptr<IPlayer> player_1_ptr, std::unique_ptr<IPlayer> player_2_ptr, int n_sets, bool render)
+    Match::Match(std::unique_ptr<IState> initial_state_ptr, IPlayer* player_1_ptr, IPlayer* player_2_ptr, int n_sets, bool render)
         : initial_state_ptr_{std::move(initial_state_ptr)},
           n_sets_{n_sets},
           render_{render}
     {
-        players_ptrs_.push_back(std::move(player_1_ptr));
-        players_ptrs_.push_back(std::move(player_2_ptr));
+        players_ptrs_.push_back(player_1_ptr);
+        players_ptrs_.push_back(player_2_ptr);
     }
     std::tuple<float, float> Match::start()
     {
@@ -31,6 +31,9 @@ namespace rl::common
     {
         std::array<float, 3> result{};
         auto state_ptr = initial_state_ptr_->reset();
+
+        state_changed_event.notify(state_ptr.get());
+
         bool is_terminal = state_ptr->is_terminal();
         int game_player = state_ptr->player_turn();
         bool inverted = starting_player == game_player ? false : true;
@@ -44,7 +47,7 @@ namespace rl::common
             game_player = state_ptr->player_turn();
             current_player = inverted ? 1 - game_player : game_player;
 
-            std::unique_ptr<IPlayer> &player_ptr = players_ptrs_.at(current_player);
+            IPlayer* player_ptr = players_ptrs_.at(current_player);
             int action = player_ptr->choose_action(state_ptr);
             std::vector<bool> actions_mask = state_ptr->actions_mask();
             if (actions_mask.at(action) == false)
@@ -53,6 +56,7 @@ namespace rl::common
                 continue;
             }
             state_ptr = state_ptr->step(action);
+            state_changed_event.notify(state_ptr.get());
             if (render_)
             {
                 std::cout << "Player" << current_player + 1 << " played action " << action << " " << std::endl;

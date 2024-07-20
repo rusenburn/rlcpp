@@ -67,7 +67,7 @@ void run_match(int n_sims, int duration_in_millis, int n_games)
     // std::unique_ptr<rl::common::Player> p2 = std::make_unique<rl::players::HumanPlayer>() ;
     // std::unique_ptr<rl::common::Player> p2{std::make_unique<rl::players::RandomActionPlayer>()};
 
-    rl::common::Match m(std::move(s), std::move(p1), std::move(p2), n_games, false);
+    rl::common::Match m(std::move(s), p1.get(), p2.get(), n_games, false);
     auto score = m.start();
 
     float ratio = float(std::get<0>(score) + n_games) / (2 * n_games);

@@ -5,8 +5,10 @@ project(${This})
 set(SourceFiles 
     src/exceptions.cpp
     src/match.cpp
+    src/observer.cpp
     src/player.cpp
     src/random.cpp
+    src/round_robin.cpp
     src/state.cpp
     src/utils.cpp
     )

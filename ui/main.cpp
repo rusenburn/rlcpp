@@ -3,19 +3,27 @@
 #include "walls/walls_ui.hpp"
 #include "damma/damma_ui.hpp"
 #include "santorini/santorini_ui.hpp"
+#include "santorini/santorini_tournament_ui.hpp"
 
 
 int main(int argc, char const *argv[])
 {
+    char a[1000];
+    std::cin >> a;
+    if (a != " ")
+    {
+        return 0;
+    }
     Color GREY = {29, 29, 29, 255};
 
     constexpr int WINDOW_W = 720;
     constexpr int WINDOW_H = 720;
     constexpr int FPS = 12;
     
-    rl::ui::SantoriniUI ui{WINDOW_W, WINDOW_H};
+    rl::ui::SantoriniTournamentUI ui{WINDOW_W, WINDOW_H};
 
     InitWindow(WINDOW_W, WINDOW_H, "Reinforcement Learning");
+    ui.init();
     SetTargetFPS(FPS);
 
     while (WindowShouldClose() == false)
