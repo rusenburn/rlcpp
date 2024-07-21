@@ -44,61 +44,23 @@ namespace rl::deeplearning::alphazero
 {
     SmallAlphaNetwork::SmallAlphaNetwork(std::array<int, 3> shape, int n_actions, int filters, int fc_dims)
         : AlphazeroNetwork(SmallAlpha(shape, n_actions, filters, fc_dims), torch::kCPU),
-        // : AlphazeroNetwork<SmallAlphaNetwork, SmallAlpha>(SmallAlpha(shape, n_actions, filters, fc_dims), torch::kCPU),
-        // mod_(SmallAlpha(shape, n_actions, filters, fc_dims)),
          observation_shape_(shape),
           n_actions_{n_actions},
           filters_{filters},
           fc_dims_{fc_dims}
-    //   dev_{torch::kCPU}
+    
     {
         mod_ = SmallAlpha(shape, n_actions, filters, fc_dims);
         dev_ = torch::kCPU;
     }
-    // std::pair<torch::Tensor, torch::Tensor> SmallAlphaNetwork::forward(torch::Tensor state)
-    // {
-    //     return mod_->forward(state);
-    // }
-    // torch::autograd::variable_list SmallAlphaNetwork::parameters()
-    // {
-    //     return mod_->parameters();
-    // }
-
-    // void SmallAlphaNetwork::to(torch::DeviceType device)
-    // {
-    //     mod_->to(device);
-    //     dev_ = device;
-    // }
-    // torch::DeviceType SmallAlphaNetwork::device()
-    // {
-    //     return dev_;
-    // }
+    
+   
     std::unique_ptr<IAlphazeroNetwork> SmallAlphaNetwork::deepcopy()
     {
         auto other_network = std::make_unique<SmallAlphaNetwork>(observation_shape_, n_actions_, filters_, fc_dims_);
         deepcopyto(other_network);
         return other_network;
     }
-    // std::unique_ptr<IAlphazeroNetwork> SmallAlphaNetwork::deepcopy()
-    // {
-    //     auto other_network = std::make_unique<SmallAlphaNetwork>(observation_shape_, n_actions_, filters_, fc_dims_);
-    //     std::string data;
-    //     {
-    //         std::ostringstream oss;
-    //         torch::serialize::OutputArchive archive;
-    //         mod_->save(archive);
-    //         archive.save_to(oss);
-    //         data = oss.str();
-    //     }
-    //     {
-    //         std::istringstream iss(data);
-    //         torch::serialize::InputArchive archive;
-    //         archive.load_from(iss);
-    //         other_network->mod_->load(archive);
-    //     }
-    //     other_network->to(dev_);
-    //     return other_network;
-    // }
 
     std::unique_ptr<IAlphazeroNetwork> SmallAlphaNetwork::copy()
     {
@@ -106,16 +68,4 @@ namespace rl::deeplearning::alphazero
     }
     SmallAlphaNetwork::~SmallAlphaNetwork() = default;
 
-    // void SmallAlphaNetwork::save(std::string file_path)
-    // {
-    //     torch::save(mod_, file_path);
-    // }
-
-    // void SmallAlphaNetwork::load(std::string file_path)
-    // {
-    //     torch::serialize::InputArchive arv;
-    //     arv.load_from(file_path);
-    //     mod_->load(arv);
-    //     mod_->to(dev_);
-    // }
 }

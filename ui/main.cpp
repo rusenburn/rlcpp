@@ -4,13 +4,14 @@
 #include "damma/damma_ui.hpp"
 #include "santorini/santorini_ui.hpp"
 #include "santorini/santorini_tournament_ui.hpp"
-
+#include <string>
 
 int main(int argc, char const *argv[])
 {
-    char a[1000];
-    std::cin >> a;
-    if (a != " ")
+    std::string a;
+    std::getline(std::cin, a);
+    std::cout << a;
+    if (a != "o")
     {
         return 0;
     }

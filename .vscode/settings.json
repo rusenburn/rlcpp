@@ -107,6 +107,10 @@
                     "short": "Release",
                     "long": "Optimize for speed - exclude debug information.",
                     "buildType": "Release",
+                    "settings" :{
+                        "USE_CUDNN" : 1
+                    }
+
                 },
                 "minsize": {
                     "short": "MinSizeRel",

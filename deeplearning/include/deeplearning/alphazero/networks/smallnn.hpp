@@ -23,11 +23,8 @@ namespace rl::deeplearning::alphazero
     class SmallAlphaNetwork : public AlphazeroNetwork<SmallAlphaNetwork,SmallAlpha>
     {
     private:
-        // SmallAlpha mod_;
-        // used for deep copy
         std::array<int,3> observation_shape_;
         int n_actions_, filters_, fc_dims_;
-        // torch::DeviceType dev_;
 
     public:
         SmallAlphaNetwork(std::array<int,3> observation_shape, int n_actions, int filters, int fc_dims);

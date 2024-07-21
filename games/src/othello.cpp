@@ -20,7 +20,7 @@ namespace rl::games
     }
 
     OthelloState::~OthelloState() = default;
-    
+
     std::unique_ptr<OthelloState> OthelloState::initialize_state()
     {
         std::array<std::array<std::array<int8_t, COLS>, ROWS>, N_PLAYERS> obs;
@@ -52,12 +52,12 @@ namespace rl::games
         return reset_state();
     }
 
-    std::unique_ptr<OthelloState> OthelloState::reset_state() const 
+    std::unique_ptr<OthelloState> OthelloState::reset_state() const
     {
         return initialize_state();
     }
 
-    std::unique_ptr<OthelloState> OthelloState::step_state(int action)const
+    std::unique_ptr<OthelloState> OthelloState::step_state(int action) const
     {
         if (is_terminal())
         {
@@ -114,7 +114,7 @@ namespace rl::games
         return std::make_unique<OthelloState>(new_obs, other, skips);
     }
 
-    std::unique_ptr<rl::common::IState> OthelloState::step(int action)const 
+    std::unique_ptr<rl::common::IState> OthelloState::step(int action) const
     {
         return step_state(action);
     }
@@ -292,7 +292,7 @@ namespace rl::games
         return ss.str();
     }
 
-    std::array<int,3> OthelloState::get_observation_shape() const
+    std::array<int, 3> OthelloState::get_observation_shape() const
     {
         return {N_PLAYERS, ROWS, COLS};
     }
@@ -474,9 +474,77 @@ namespace rl::games
         return clone_state();
     }
 
-    void OthelloState::get_symmetrical_obs_and_actions(std::vector<float> const &obs, std::vector<float> const &actions_distribution, std::vector<std::vector<float>> &out_syms, std::vector<std::vector<float>> &out_actions_distribution)const
+    void OthelloState::get_symmetrical_obs_and_actions(std::vector<float> const &obs, std::vector<float> const &actions_distribution, std::vector<std::vector<float>> &out_syms, std::vector<std::vector<float>> &out_actions_distribution) const
     {
         out_syms.clear();
         out_actions_distribution.clear();
+        if (obs.size() != N_PLAYERS * ROWS * COLS)
+        {
+            std::stringstream ss;
+            ss << "get_symmetrical_obs_and_actions requires an observation with size of " << N_PLAYERS * ROWS * COLS;
+            ss << " but a size of " << obs.size() << " was passed.";
+            throw std::runtime_error(ss.str());
+        }
+        constexpr int N_ACTIONS = ROWS * COLS + 1;
+        constexpr int CHANNELS = N_PLAYERS;
+        // add first sym
+        out_syms.push_back({});
+        std::vector<float> &first_obs = out_syms.at(0);
+        first_obs.reserve(obs.size());
+        for (int i = 0; i < N_PLAYERS * ROWS * COLS; i++)
+        {
+            float value = obs.at(othello_syms::FIRST_OBS_SYM.at(i));
+            first_obs.emplace_back(value);
+        }
+
+        // add first actions sym
+        out_actions_distribution.push_back({});
+        std::vector<float> &first_actions = out_actions_distribution.at(0);
+        first_actions.reserve(N_ACTIONS);
+        for (int i = 0; i < N_ACTIONS; i++)
+        {
+            float value = actions_distribution.at(othello_syms::FIRST_ACTIONS_SYM.at(i));
+            first_actions.emplace_back(value);
+        }
+
+        // add second sym
+        out_syms.push_back({});
+        std::vector<float> &second_obs = out_syms.at(1);
+        second_obs.reserve(obs.size());
+        for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+        {
+            float value = obs.at(othello_syms::SECOND_OBS_SYM.at(i));
+            second_obs.emplace_back(value);
+        }
+
+        // add second action sym
+        out_actions_distribution.push_back({});
+        std::vector<float> &second_actions = out_actions_distribution.at(1);
+        second_actions.reserve(N_ACTIONS);
+        for (int i = 0; i < N_ACTIONS; i++)
+        {
+            float value = actions_distribution.at(othello_syms::SECOND_ACTIONS_SYM.at(i));
+            second_actions.emplace_back(value);
+        }
+
+        // add third sym
+        out_syms.push_back({});
+        std::vector<float> &third_obs = out_syms.at(2);
+        third_obs.reserve(obs.size());
+        for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+        {
+            float value = obs.at(othello_syms::THIRD_OBS_SYM.at(i));
+            third_obs.emplace_back(value);
+        }
+
+        // add third action sym
+        out_actions_distribution.push_back({});
+        std::vector<float> &third_actions = out_actions_distribution.at(2);
+        third_actions.reserve(N_ACTIONS);
+        for (int i = 0; i < N_ACTIONS; i++)
+        {
+            float value = actions_distribution.at(othello_syms::THIRD_ACTIONS_SYM.at(i));
+            third_actions.emplace_back(value);
+        }
     }
 } // namespace rl::games

@@ -52,7 +52,6 @@ namespace rl::ui
 		state_observer_ptr_ = round_robin_ptr_->matchinfo_changed_event.subscribe(fn);
 		t_ptr_ = std::make_unique<std::thread>(&rl::common::RoundRobin::start, round_robin_ptr_.get());
 		t_ptr_->detach();
-		// round_robin_ptr_->start();
 	}
 
 	void SantoriniTournamentUI::dispose()
@@ -63,8 +62,8 @@ namespace rl::ui
 	std::unique_ptr<rl::common::RoundRobin> SantoriniTournamentUI::get_new_round_robin()
 	{
 		players_.clear();
-		auto players_duration = std::chrono::duration<int, std::milli>(2000);
-		players_.push_back(get_random_rollout_player_ptr(state_ptr_.get(), 3, players_duration));
+		auto players_duration = std::chrono::duration<int, std::milli>(1000);
+		players_.push_back(get_default_g_player(state_ptr_.get(), 3, players_duration));
 		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_120.pt"));
 		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_180.pt"));
 		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_220.pt"));
