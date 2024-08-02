@@ -13,6 +13,7 @@
 #include <common/match.hpp>
 #include <deeplearning/alphazero/alphazero.hpp>
 
+
 namespace rl::deeplearning::alphazero
 {
 
@@ -37,6 +38,7 @@ namespace rl::deeplearning::alphazero
         float critic_coef,
         int n_testing_episodes,
         std::unique_ptr<IAlphazeroNetwork> network_ptr,
+        std::unique_ptr<IAlphazeroNetwork> tiny_ptr,
         std::string load_path,
         std::string save_name)
 
@@ -52,12 +54,14 @@ namespace rl::deeplearning::alphazero
           n_testing_episodes_{n_testing_episodes},
           n_game_actions_{0},
           base_network_ptr_{std::move(network_ptr)},
+          tiny_network_ptr_{std::move(tiny_ptr)},
           dev_{torch::cuda::is_available() ? torch::kCUDA : torch::kCPU},
           load_path_{load_path},
           save_name_{save_name}
     {
         n_game_actions_ = initial_state_ptr_->get_n_actions();
         base_network_ptr_->to(dev_);
+        tiny_network_ptr_->to(dev_);
         if (load_path.size())
         {
             base_network_ptr_->load(load_path);
@@ -81,7 +85,9 @@ namespace rl::deeplearning::alphazero
         const std::string folder_name = "../checkpoints";
         std::filesystem::path folder(folder_name);
         std::filesystem::path file_path;
+        std::filesystem::path tiny_path;
         std::filesystem::path strongest_path;
+        tiny_path = folder/"tiny.pt";
         if (save_name_.size())
         {
             file_path = folder / save_name_;
@@ -141,7 +147,8 @@ namespace rl::deeplearning::alphazero
 
             std::cout << "Training phase using " << n_examples << " examples..." << std::endl;
 
-            train_network(all_observations_, all_probabilities_, all_wdls_);
+            train_network(base_network_ptr_,all_observations_, all_probabilities_, all_wdls_);
+            train_network(tiny_network_ptr_,all_observations_, all_probabilities_, all_wdls_);
 
             iteration++;
 
@@ -170,6 +177,7 @@ namespace rl::deeplearning::alphazero
             all_wdls_.clear();
             base_network_ptr_->save(file_path.string());
             strongest->save(strongest_path.string());
+            tiny_network_ptr_->save(tiny_path.string());
         }
     }
 
@@ -248,17 +256,17 @@ namespace rl::deeplearning::alphazero
         return action;
     }
 
-    void AlphaZero::train_network(std::vector<float> &observations, std::vector<float> &probabilities, std::vector<float> &wdls)
+    void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr,std::vector<float> &observations, std::vector<float> &probabilities, std::vector<float> &wdls)
     {
-        torch::optim::AdamW optimizer(base_network_ptr_->parameters(), torch::optim::AdamWOptions{lr_}.betas({0.0f, 0.999f}).eps(1e-8));
-        // torch::optim::AdamW optimizer(base_network_ptr_->parameters(), torch::optim::AdamWOptions{lr_}.betas({0.0f, 0.999f}).eps(1e-8).weight_decay(1e-4));
-        // torch::optim::SGD optimizer(base_network_ptr_->parameters(), torch::optim::SGDOptions{lr_}.weight_decay(1e-4));
+        torch::optim::AdamW optimizer(network_ptr->parameters(), torch::optim::AdamWOptions{lr_}.eps(1e-8).weight_decay(1e-4));
         std::array<int, 3> observation_shape = initial_state_ptr_->get_observation_shape();
         int channels = observation_shape.at(0);
         int rows = observation_shape.at(1);
         int cols = observation_shape.at(2);
         int n_examples = observations.size() / (channels * rows * cols);
         int batch_size = n_examples / n_batches_;
+        // int batch_size = 1024;
+        // n_batches_ = n_examples / batch_size;
 
         std::vector<float> total_losses{};
         std::vector<float> actor_losses{};
@@ -286,7 +294,7 @@ namespace rl::deeplearning::alphazero
                 torch::Tensor target_probs_batch = probabilities_tensor.index({sample_ids}).to(dev_);
                 torch::Tensor target_wdl_batch = wdl_tensor.index({sample_ids}).to(dev_);
 
-                std::tuple predicted = base_network_ptr_->forward(observations_batch);
+                std::tuple predicted = network_ptr->forward(observations_batch);
                 torch::Tensor predicted_probs = std::get<0>(predicted);
                 torch::Tensor predicted_wdls = std::get<1>(predicted);
 
@@ -311,8 +319,8 @@ namespace rl::deeplearning::alphazero
 
                 total_loss.backward();
 
-                torch::nn::utils::clip_grad_value_(base_network_ptr_->parameters(), 10000);
-                torch::nn::utils::clip_grad_norm_(base_network_ptr_->parameters(), 10, 2.0, true);
+                torch::nn::utils::clip_grad_value_(network_ptr->parameters(), 10000);
+                torch::nn::utils::clip_grad_norm_(network_ptr->parameters(), 10, 2.0, true);
 
                 optimizer.step();
                 actor_losses.push_back(actor_loss.detach().cpu().item<float>());

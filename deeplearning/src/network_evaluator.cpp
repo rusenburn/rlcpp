@@ -77,7 +77,6 @@ namespace rl::deeplearning
         torch::Tensor observations_tensor = torch::tensor(observations, torch::kFloat32)
                                                 .to(network_ptr_->device())
                                                 .reshape({n_states, observation_shape_.at(0), observation_shape_.at(1), observation_shape_.at(2)});
-
         torch::Tensor actions_mask_tensor = torch::tensor(actions_mask, torch::kFloat32).to(network_ptr_->device()).reshape({n_states, n_actions_});
         auto rs = network_ptr_->forward(observations_tensor);
         auto probs_tensor = std::get<0>(rs);

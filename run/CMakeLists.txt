@@ -4,7 +4,6 @@ set(This run)
 project(${This})
 set(SourceFiles 
     main.cpp
-    examples.cpp
     console.cpp
     main_console.cpp
     train_ai_console.cpp
@@ -12,16 +11,6 @@ set(SourceFiles
     )
 
 set(HeaderFiles )
-
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-
-# # set(CMAKE_PREFIX_PATH "C:/libtorch-win-shared-with-deps-1.12.1+cu116/libtorch")
-# set(CMAKE_PREFIX_PATH "C:/libtorch-win-shared-with-deps-2.2.1+cu118/libtorch")
-# if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-#     message("###  Using Debug ###")
-#     set(CMAKE_PREFIX_PATH "C:/libtorch-win-shared-with-deps-debug-2.2.1+cu118/libtorch")
-#     message("### CMAKE_PREFIX PATH ${CMAKE_PREFIX_PATH} ###")
-# endif()
 
 set(CUDNN_LIBRARY_PATH "C:/Program Files/NVIDIA/CUDNN/v8.5.0.96/lib")
 set(CUDNN_INCLUDE_PATH "C:/Program Files/NVIDIA/CUDNN/v8.5.0.96/include")

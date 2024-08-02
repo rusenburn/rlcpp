@@ -1,6 +1,7 @@
 #include <iostream>
 #include <deeplearning/alphazero/alphazero.hpp>
 #include <deeplearning/alphazero/networks/shared_res_nn.hpp>
+#include <deeplearning/alphazero/networks/tinynn.hpp>
 #include "train_ai_console.hpp"
 #include <games/tictactoe.hpp>
 #include <games/othello.hpp>
@@ -8,7 +9,7 @@
 #include <games/walls.hpp>
 #include <games/damma.hpp>
 #include <games/santorini.hpp>
-
+#include <filesystem>
 namespace rl::run
 {
     TrainAIConsole::TrainAIConsole() = default;
@@ -73,7 +74,7 @@ namespace rl::run
         std::cout << "[Iterations] " << n_iterations_ << " [Episodes per iteration] " << n_episodes_ << '\n';
         std::cout << "[Simulations] " << n_sims_ << " [Epochs] " << n_epochs_ << " [Batches] " << n_batches_ << '\n';
         std::cout << "[Learning rate] " << lr_ << " [Critic Coef] " << critic_coef_ << " [Testing eposodes] " << n_testing_episodes_ << '\n';
-        std::cout << "[Load name] " << load_path_ << '\n';
+        std::cout << "[Load name] " << load_name_ << '\n';
         std::cout << "[Save name] " << save_name_ << '\n';
         std::cout << "[NETWORK] [Filters] " << filters << " Fc Dims " << fc_dimensions << "blocks" << blocks << std::endl;
     }
@@ -155,9 +156,9 @@ namespace rl::run
                 break;
 
             case 10:
-                std::cout << "[10] Load path (" << load_path_ << ")" << std::endl;
+                std::cout << "[10] Load name (" << load_name_ << ")" << std::endl;
                 std::cout << "Enter new value: ";
-                std::cin >> load_path_;
+                std::cin >> load_name_;
                 break;
 
             case 11:
@@ -194,6 +195,11 @@ namespace rl::run
     {
         IStatePtr state_ptr{get_state_ptr()};
         IAlphazeroNetworkPtr network{get_network_ptr()};
+        IAlphazeroNetworkPtr tiny_network{get_tiny_network_ptr()};
+        const std::string folder_name = "../checkpoints";
+        std::filesystem::path folder(folder_name);
+        std::filesystem::path file_path;
+        file_path = folder / load_name_;
         auto alphazero_trainer = rl::deeplearning::alphazero::AlphaZero(
             state_ptr->clone(),
             state_ptr->clone(),
@@ -206,7 +212,8 @@ namespace rl::run
             critic_coef_,
             n_testing_episodes_,
             std::move(network),
-            load_path_,
+            std::move(tiny_network),
+            load_name_,
             save_name_);
         std::cout << "Starting to train Alphazero bot ..." << std::endl;
         alphazero_trainer.train();
@@ -251,6 +258,12 @@ namespace rl::run
             fc_dimensions,
             blocks);
     }
+    IAlphazeroNetworkPtr TrainAIConsole::get_tiny_network_ptr()
+    {
+        auto state_ptr = get_state_ptr();
+        return std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_ptr->get_observation_shape(),state_ptr->get_n_actions());
+    }
+
 
     void TrainAIConsole::edit_game_settings()
     {

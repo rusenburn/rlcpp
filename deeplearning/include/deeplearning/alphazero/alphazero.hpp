@@ -24,6 +24,7 @@ namespace rl::deeplearning::alphazero
         int n_testing_episodes_;
         int n_game_actions_;
         std::unique_ptr<IAlphazeroNetwork> base_network_ptr_;
+        std::unique_ptr<IAlphazeroNetwork> tiny_network_ptr_;
         torch::DeviceType dev_;
         std::string load_path_;
         std::string save_name_;
@@ -39,7 +40,7 @@ namespace rl::deeplearning::alphazero
         std::vector<float> episode_steps_{};
 
         int choose_action(std::vector<float> &probs);
-        void train_network(std::vector<float> &observations, std::vector<float> &probabilities, std::vector<float> &wdls);
+        void train_network(std::unique_ptr<IAlphazeroNetwork> &network,std::vector<float> &observations, std::vector<float> &probabilities, std::vector<float> &wdls);
         static torch::Tensor cross_entropy_loss_(torch::Tensor &target, torch::Tensor &prediction);
         void collect_data();
         void end_subtree(int subtree_id, int last_player, float result);
@@ -59,6 +60,7 @@ namespace rl::deeplearning::alphazero
             float critic_coef_,
             int n_testing_episodes,
             std::unique_ptr<IAlphazeroNetwork> network_ptr,
+            std::unique_ptr<IAlphazeroNetwork> tiny_ptr,
             std::string load_path = "",
             std::string save_name = "temp.pt");
         void train();

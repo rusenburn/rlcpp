@@ -107,10 +107,6 @@
                     "short": "Release",
                     "long": "Optimize for speed - exclude debug information.",
                     "buildType": "Release",
-                    "settings" :{
-                        "USE_CUDNN" : 1
-                    }
-
                 },
                 "minsize": {
                     "short": "MinSizeRel",
@@ -121,14 +117,7 @@
                     "short": "RelWithDebInfo",
                     "long": "Optimize for speed - include debug information.",
                     "buildType": "RelWithDebInfo",
-                    
-                    
-                },"releaseInRelease": {
-                    "short": "ReleaseInRelease",
-                    "long": "Optimize for speed - exclude debug information.",
-                    "buildType": "Release",
-                    "buildDirectory": "${workspaceFolder}/build/release",
-                },
+                }
             }
         }
     },

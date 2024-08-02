@@ -6,6 +6,7 @@
 #include <players/players.hpp>
 #include <players/random_rollout_evaluator.hpp>
 #include <deeplearning/alphazero/networks/shared_res_nn.hpp>
+#include <deeplearning/alphazero/networks/tinynn.hpp>
 #include <games/tictactoe.hpp>
 #include <games/othello.hpp>
 #include <games/english_draughts.hpp>
@@ -330,10 +331,14 @@ namespace rl::run
             return std::make_unique<rl::players::RandomActionPlayer>();
             break;
         case NETWORK_EVALUATOR_PLAYER:
-
             network_ptr = get_network_ptr(filters, fc_dims, blocks, load_name);
             evaluator_ptr = get_network_evaluator_ptr(network_ptr);
             return std::make_unique<rl::players::EvaluatorPlayer>(evaluator_ptr->clone());
+            break;
+        case NETWORK_CPU_MCTS_PLAYER:
+            network_ptr = get_tiny_network_ptr(load_name);
+            evaluator_ptr = get_network_evaluator_ptr(network_ptr);
+            return get_mcts_player(evaluator_ptr, n_sims, minimum_duration);
             break;
         default:
             throw "";
@@ -374,6 +379,26 @@ namespace rl::run
         auto network_ptr = std::make_unique<rl::deeplearning::alphazero::SharedResNetwork>(state_pr->get_observation_shape(), state_pr->get_n_actions(),
                                                                                            filters, fc_dims, blocks);
         auto device = torch::cuda::is_available() ? torch::kCUDA : torch::kCPU;
+        const std::string folder_name = "../checkpoints";
+        std::filesystem::path folder(folder_name);
+        std::filesystem::path file_path;
+        file_path = folder / load_name;
+        network_ptr->load(file_path.string());
+        network_ptr->to(device);
+        int n_examples = 1;
+        int n_channels = state_pr->get_observation_shape()[0];
+        int n_rows = state_pr->get_observation_shape()[1];
+        int n_cols = state_pr->get_observation_shape()[2];
+
+        network_ptr->forward(torch::randn(n_examples * n_channels * n_rows * n_cols).to(device).reshape({n_examples, n_channels, n_rows, n_cols}));
+        return network_ptr;
+    }
+
+    INetworkPtr MatchConsole::get_tiny_network_ptr(std::string load_name)
+    {
+        auto state_pr = get_state_ptr();
+        auto network_ptr = std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_pr->get_observation_shape(), state_pr->get_n_actions());
+        auto device = torch::kCPU;
         const std::string folder_name = "../checkpoints";
         std::filesystem::path folder(folder_name);
         std::filesystem::path file_path;
@@ -444,6 +469,7 @@ namespace rl::run
         std::cout << "[6] Human player\n";
         std::cout << "[7] Random action player\n";
         std::cout << "[8] Network player without tree\n";
+        std::cout << "[9] Network MCTS CPU Player\n";
         std::cout << std::endl;
 
         int choice;
@@ -476,6 +502,9 @@ namespace rl::run
             break;
         case 8:
             return NETWORK_EVALUATOR_PLAYER;
+            break;
+        case 9:
+            return NETWORK_CPU_MCTS_PLAYER;
             break;
         default:
             return -1;

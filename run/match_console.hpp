@@ -30,6 +30,7 @@ namespace rl::run
         static constexpr int HUMAN_PLAYER = 6;
         static constexpr int RANDOM_ACTION_PLAYER = 7;
         static constexpr int NETWORK_EVALUATOR_PLAYER = 8;
+        static constexpr int NETWORK_CPU_MCTS_PLAYER = 9;
 
         static constexpr int TIC_TAC_TOE_GAME = 0;
         static constexpr int OTHELLO_GAME = 1;
@@ -50,6 +51,7 @@ namespace rl::run
                               int filters, int fc_dims, int blocks, std::string load_name);
         IStatePtr get_state_ptr();
         INetworkPtr get_network_ptr(int filters, int fc_dims, int blocks, std::string load_name);
+        INetworkPtr get_tiny_network_ptr(std::string load_name);
         std::unique_ptr<rl::players::IEvaluator> get_network_evaluator_ptr(INetworkPtr &network_ptr);
         IPlayerPtr get_amcts_player(std::unique_ptr<rl::players::IEvaluator> &evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration);
         IPlayerPtr get_mcts_player(std::unique_ptr<rl::players::IEvaluator> &evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration);

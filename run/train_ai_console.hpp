@@ -31,7 +31,7 @@ namespace rl::run
         float lr_{2.5e-4};
         float critic_coef_{0.5};
         int n_testing_episodes_{32};
-        std::string load_path_{""};
+        std::string load_name_{""};
         std::string save_name_{"temp.pt"};
 
         // network settings
@@ -46,6 +46,7 @@ namespace rl::run
 
         IStatePtr get_state_ptr();
         IAlphazeroNetworkPtr get_network_ptr();
+        IAlphazeroNetworkPtr get_tiny_network_ptr();
 
     public:
         TrainAIConsole(/* args */);

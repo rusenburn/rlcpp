@@ -63,7 +63,7 @@ namespace rl::ui
 	{
 		players_.clear();
 		auto players_duration = std::chrono::duration<int, std::milli>(1000);
-		players_.push_back(get_default_g_player(state_ptr_.get(), 3, players_duration));
+		players_.push_back(get_random_rollout_player_ptr(state_ptr_.get(), 3, players_duration*5));
 		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_120.pt"));
 		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_180.pt"));
 		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_220.pt"));
