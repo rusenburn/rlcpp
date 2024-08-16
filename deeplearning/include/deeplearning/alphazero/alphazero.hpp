@@ -6,6 +6,7 @@
 #include <common/state.hpp>
 #include "alphazero_sub_tree.hpp"
 #include "alphazero_sub_tree2.hpp"
+#include <torch/torch.h>
 
 namespace rl::deeplearning::alphazero
 {
@@ -40,7 +41,7 @@ namespace rl::deeplearning::alphazero
         std::vector<float> episode_steps_{};
 
         int choose_action(std::vector<float> &probs);
-        void train_network(std::unique_ptr<IAlphazeroNetwork> &network,std::vector<float> &observations, std::vector<float> &probabilities, std::vector<float> &wdls);
+        void train_network(std::unique_ptr<IAlphazeroNetwork> &network,torch::optim::Optimizer& optimizer_ref,std::vector<float> &observations, std::vector<float> &probabilities, std::vector<float> &wdls);
         static torch::Tensor cross_entropy_loss_(torch::Tensor &target, torch::Tensor &prediction);
         void collect_data();
         void end_subtree(int subtree_id, int last_player, float result);

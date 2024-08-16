@@ -1,6 +1,7 @@
 #include <common/utils.hpp>
 #include <cmath>
 #include <stdexcept>
+#include <random>
 namespace rl::common::utils
 {
     float EPS = 1e-6f;
@@ -11,7 +12,7 @@ namespace rl::common::utils
         {
             sum += p;
         }
-        
+
         float final_sum{0};
         for (auto &p : vec)
         {
@@ -67,4 +68,52 @@ namespace rl::common::utils
 
         return probs_with_temp;
     }
+
+    std::vector<float> rl::common::utils::get_dirichlet_noise(const int n_actions, const float alpha, std::mt19937 &engine)
+    {
+        std::vector<float> output;
+        output.reserve(n_actions);
+        std::gamma_distribution<> gamma(alpha, 1);
+        for (int i = 0; i < n_actions; i++)
+        {
+            output.emplace_back(static_cast<float>(gamma(engine)));
+        }
+        normalize_vector(output);
+        return output;
+    }
+
+    std::vector<float> get_dirichlet_noise(const std::vector<bool> &actions_mask, float alpha, std::mt19937 &engine)
+    {
+        const int n_actions = actions_mask.size();
+        std::vector<float> output;
+        output.reserve(n_actions);
+        if (alpha < 0)
+        {
+            int sum_legal_actions = 0;
+            for (bool a : actions_mask)
+            {
+                if (a)
+                {
+                    sum_legal_actions += 1;
+                }
+            }
+            alpha = 10 / sum_legal_actions;
+        }
+        std::gamma_distribution<> gamma(alpha, 1);
+
+        for (int i = 0; i < n_actions; i++)
+        {
+            if (actions_mask.at(i))
+            {
+                output.emplace_back(static_cast<float>(gamma(engine)));
+            }
+            else
+            {
+                output.emplace_back(static_cast<float>(1e-8));
+            }
+        }
+        normalize_vector(output);
+        return output;
+    }
+
 } // namespace rl::common::utils

@@ -1,5 +1,6 @@
 #include "players_utils.hpp"
 #include <deeplearning/alphazero/networks/shared_res_nn.hpp>
+#include <deeplearning/alphazero/networks/tinynn.hpp>
 #include <deeplearning/network_evaluator.hpp>
 #include <filesystem>
 #include <players/random_rollout_evaluator.hpp>
@@ -102,6 +103,24 @@ namespace rl::ui
         std::stringstream ss{};
         ss << "NN " << load_name;
         auto player_ptr = std::make_unique<rl::players::EvaluatorPlayer>(std::move(ev_ptr));
+        return std::make_unique<PlayerInfoFull>(std::move(player_ptr),ss.str());
+    }
+
+    std::unique_ptr<PlayerInfoFull> get_tiny_network_mcts_player(rl::common::IState *state_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name)
+    {
+        auto network_ptr = std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_ptr->get_observation_shape(), state_ptr->get_n_actions());
+        auto device = torch::kCPU;
+        const std::string folder_name = "../checkpoints";
+        std::filesystem::path folder(folder_name);
+        std::filesystem::path file_path;
+        file_path = folder / load_name;
+        network_ptr->load(file_path.string());
+        network_ptr->to(device);
+        auto ev_ptr = std::make_unique<rl::deeplearning::NetworkEvaluator>(std::move(network_ptr), state_ptr->get_n_actions(), state_ptr->get_observation_shape());
+        ev_ptr->evaluate(state_ptr);
+        auto player_ptr = std::make_unique<rl::players::MctsPlayer>(state_ptr->get_n_actions(), std::move(ev_ptr), n_sims, minimum_duration, 0.5f, 2.0f);
+        std::stringstream ss{};
+        ss << "Tiny MCTS NN" << load_name;
         return std::make_unique<PlayerInfoFull>(std::move(player_ptr),ss.str());
     }
 } // namespace rl::ui::players_utils

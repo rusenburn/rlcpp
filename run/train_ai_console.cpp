@@ -213,7 +213,7 @@ namespace rl::run
             n_testing_episodes_,
             std::move(network),
             std::move(tiny_network),
-            load_name_,
+            file_path.string(),
             save_name_);
         std::cout << "Starting to train Alphazero bot ..." << std::endl;
         alphazero_trainer.train();

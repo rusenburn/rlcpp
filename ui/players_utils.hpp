@@ -23,6 +23,9 @@ namespace rl::ui
     std::unique_ptr<PlayerInfoFull> get_network_mcts_player(rl::common::IState *state_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name);
     std::unique_ptr<PlayerInfoFull> get_network_lm_mcts_player(rl::common::IState *state_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name);
     std::unique_ptr<PlayerInfoFull> get_network_evaluator_ptr(rl::common::IState *state_ptr, std::string load_name);
+    std::unique_ptr<PlayerInfoFull> get_tiny_network_mcts_player(rl::common::IState *state_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name);
+
+
 
 } // namespace rl::ui::players_utils
 

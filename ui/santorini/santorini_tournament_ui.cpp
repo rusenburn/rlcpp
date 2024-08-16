@@ -63,14 +63,17 @@ namespace rl::ui
 	{
 		players_.clear();
 		auto players_duration = std::chrono::duration<int, std::milli>(1000);
-		players_.push_back(get_random_rollout_player_ptr(state_ptr_.get(), 3, players_duration*5));
 		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_120.pt"));
 		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_180.pt"));
 		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_220.pt"));
 		players_.push_back(get_network_mcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_220.pt"));
 		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_340.pt"));
 		players_.push_back(get_network_mcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_340.pt"));
-		players_.push_back(get_network_evaluator_ptr(state_ptr_.get(), "santorini_strongest_340.pt"));
+		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_380.pt"));
+		players_.push_back(get_network_mcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_380.pt"));
+		players_.push_back(get_network_mcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_410.pt"));
+		players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_410.pt"));
+		
 
 		std::vector<rl::common::PlayerInfo> players_info{};
 		for (auto& pi : players_)

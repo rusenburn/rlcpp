@@ -3,15 +3,16 @@
 #include <iostream>
 #include <common/random.hpp>
 #include <deeplearning/alphazero/alphazero_sub_tree2.hpp>
+#include <common/utils.hpp>
 
 namespace rl::deeplearning
 {
     constexpr float EPS = 1e-8f;
     AmctsSubTree2::AmctsSubTree2(int n_game_actions,
-                               float cpuct,
-                               float temperature,
-                               float default_visits,
-                               float default_wins)
+                                 float cpuct,
+                                 float temperature,
+                                 float default_visits,
+                                 float default_wins)
         : n_game_actions_{n_game_actions},
           default_n_{default_visits},
           default_w_{default_wins},
@@ -27,7 +28,7 @@ namespace rl::deeplearning
     void AmctsSubTree2::roll(const rl::common::IState *root_ptr)
     {
         std::vector<AmctsInfo2> visited_path{};
-        simulate_once(root_ptr, visited_path);
+        simulate_once(root_ptr, visited_path,true);
     }
 
     std::vector<const rl::common::IState *> AmctsSubTree2::get_rollouts()
@@ -40,7 +41,7 @@ namespace rl::deeplearning
         return res;
     }
 
-    void AmctsSubTree2::simulate_once(const rl::common::IState *state_ptr, std::vector<AmctsInfo2> &visited_path)
+    void AmctsSubTree2::simulate_once(const rl::common::IState *state_ptr, std::vector<AmctsInfo2> &visited_path, bool use_dirichlet_noise)
     {
         if (state_ptr->is_terminal())
         {
@@ -63,7 +64,7 @@ namespace rl::deeplearning
             MapValues &state_values = values_.at(short_state);
             const std::vector<bool> &actions_mask = state_values.masks;
 
-            // check if it has more than  1 legal action
+            // check if it has more than 1 legal action
             int n_legal_actions{0};
             for (bool m : actions_mask)
             {
@@ -91,7 +92,7 @@ namespace rl::deeplearning
         // continue down the tree
 
         MapValues &state_value = values_.at(short_state);
-        int best_action = find_best_action(state_value);
+        int best_action = find_best_action(state_value, use_dirichlet_noise);
 
         if (!state_value.edges.at(best_action)) // check if edge of best action is null
         {
@@ -111,11 +112,11 @@ namespace rl::deeplearning
         state_value.ns += default_n_;
         state_value.ws += default_w_;
         state_value.wsa.at(best_action) += default_w_;
-        
+
         simulate_once(new_state_ptr, visited_path);
     }
 
-    int AmctsSubTree2::find_best_action(MapValues &state_values)
+    int AmctsSubTree2::find_best_action(MapValues &state_values, bool use_dirichlet_noise)
     {
         float max_u = -INFINITY;
         int best_action = -1;
@@ -123,8 +124,14 @@ namespace rl::deeplearning
         const auto &wsa_vec = state_values.wsa;
         const auto &nsa_vec = state_values.nsa;
         const auto &psa_vec = state_values.psa;
+        auto &dirichlet_noise = state_values.dirichlet_noise;
         const auto &masks = state_values.masks;
         float current_state_visis = state_values.ns;
+
+        if (use_dirichlet_noise && dirichlet_noise.size() != psa_vec.size())
+        {
+            dirichlet_noise = rl::common::utils::get_dirichlet_noise(masks, 0.3, rl::common::mt);
+        }
 
         for (int action{0}; action < masks.size(); action++)
         {
@@ -134,6 +141,11 @@ namespace rl::deeplearning
                 continue;
             }
             float action_prob = psa_vec.at(action);
+            if (use_dirichlet_noise)
+            {
+                constexpr float dirichlet_weighting_average = 0.25;
+                action_prob = (1 - dirichlet_weighting_average) * action_prob + dirichlet_noise.at(action) * dirichlet_weighting_average;
+            }
             float action_visits = nsa_vec.at(action);
             float qsa = 0.0f;
 
@@ -189,7 +201,7 @@ namespace rl::deeplearning
         {
             probs.emplace_back(float(m) / n_legal_actions);
         }
-        auto& a = (values_[short_state] = {});
+        auto &a = (values_[short_state] = {});
         a.masks = action_mask;
         a.ns = ns;
         a.ws = 0;
@@ -217,7 +229,7 @@ namespace rl::deeplearning
             std::runtime_error("Trying to get probabilities with nullptr state");
         }
         std::string state_short = root_ptr->to_short();
-        auto& state_values = values_.at(state_short);
+        auto &state_values = values_.at(state_short);
         const auto &actions_visits = state_values.nsa;
         if (temperature_ == 0.0f)
         {
@@ -313,7 +325,7 @@ namespace rl::deeplearning
         {
             std::runtime_error("Trying to get evaluation of nullptr state");
         }
-        
+
         std::string state_short = root_ptr->to_short();
         auto &state_value_ref = values_.at(state_short);
         float n = state_value_ref.ns;
@@ -323,7 +335,7 @@ namespace rl::deeplearning
         }
         float w = state_value_ref.ws;
         // float win_ratio = (w + n) / (2 * n);
-        return w/n;
+        return w / n;
     }
     void AmctsSubTree2::evaluate_collected_states(std::tuple<std::vector<float>, std::vector<float>> &evaluations_tuple)
     {
@@ -385,7 +397,7 @@ namespace rl::deeplearning
             state_value_ref.ns += 1 - default_n_;
             state_value_ref.nsa.at(info.action) += 1 - default_n_;
             state_value_ref.wsa.at(info.action) += score - default_w_;
-            state_value_ref.ws +=score - default_w_;
+            state_value_ref.ws += score - default_w_;
             visited_path.pop_back();
         }
     }

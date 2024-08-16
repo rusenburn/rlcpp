@@ -3,7 +3,7 @@
 
 #include <chrono>
 #include <random>
-
+#include <cmath>
 namespace rl::common
 {
     inline std::mt19937 generate()

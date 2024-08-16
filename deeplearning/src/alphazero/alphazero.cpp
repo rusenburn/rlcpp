@@ -16,16 +16,26 @@
 
 namespace rl::deeplearning::alphazero
 {
-
+    // These used during evaluation, not during data collection
     constexpr int N_ASYNC = 8;
     constexpr float N_VISITS = 1.0f;
     constexpr float N_WINS = -1.0f;
+
+
     constexpr float EPS = 1e-4f;
+
+    // Number of workers/games that run asynchronously , each has its own tree, used during data collection
     constexpr int N_TREES = 64;
+    // Number of states to be collected per sub tree before evaluation
     constexpr int N_SUB_TREE_ASYNC = 1;
+    // Number of  workers/games that cannot end early and must complete to end ( until terminal ) , the rest can skip when it is losing horribly
     constexpr int N_COMPLETE_TO_END = N_TREES / 4;
+    // Players that reached below this score can resign IF THEY ARE NOT COMPLETE TO END PLAYERS
     constexpr float NO_RESIGN_THRESHOLD = -0.8f;
+    // Players are not allowed to resign if the number of steps is below this number
     constexpr int MINIMUM_STEPS = 30;
+    // MCTS CPUCT
+    constexpr float CPUCT = 1.25f;
     AlphaZero::AlphaZero(
         std::unique_ptr<rl::common::IState> initial_state_ptr,
         std::unique_ptr<rl::common::IState> test_state_ptr,
@@ -112,6 +122,7 @@ namespace rl::deeplearning::alphazero
         auto s = initial_state_ptr_->get_observation_shape();
         auto strongest = base_network_ptr_->deepcopy();
         strongest->to(dev_);
+        torch::optim::AdamW optimizer(base_network_ptr_->parameters(), torch::optim::AdamWOptions{lr_}.eps(1e-8).weight_decay(1e-4));
         auto observation_shape = initial_state_ptr_->get_observation_shape();
         int channels = observation_shape.at(0);
         int rows = observation_shape.at(1);
@@ -147,8 +158,7 @@ namespace rl::deeplearning::alphazero
 
             std::cout << "Training phase using " << n_examples << " examples..." << std::endl;
 
-            train_network(base_network_ptr_,all_observations_, all_probabilities_, all_wdls_);
-            train_network(tiny_network_ptr_,all_observations_, all_probabilities_, all_wdls_);
+            train_network(base_network_ptr_,optimizer,all_observations_, all_probabilities_, all_wdls_);
 
             iteration++;
 
@@ -158,9 +168,9 @@ namespace rl::deeplearning::alphazero
                 std::cout << "Evaluation Phase" << std::endl;
                 std::chrono::duration<int, std::milli> zero_duration{0};
                 std::unique_ptr<rl::players::IEvaluator> ev1_ptr{std::make_unique<rl::deeplearning::NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, observation_shape)};
-                auto p1_ptr = std::make_unique<rl::players::AmctsPlayer>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 1, 2.0, N_ASYNC, N_VISITS, N_WINS);
+                auto p1_ptr = std::make_unique<rl::players::AmctsPlayer>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
                 std::unique_ptr<rl::players::IEvaluator> ev2_ptr{std::make_unique<rl::deeplearning::NetworkEvaluator>(strongest->copy(), n_game_actions_, observation_shape)};
-                auto p2_ptr = std::make_unique<rl::players::AmctsPlayer>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 1, 2.0, N_ASYNC, N_VISITS, N_WINS);
+                auto p2_ptr = std::make_unique<rl::players::AmctsPlayer>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
                 rl::common::Match m(test_state_ptr_->reset(), p1_ptr.get(), p2_ptr.get(), n_testing_episodes_, false);
                 std::tuple<float, float> tp{m.start()};
                 float p1_score = std::get<0>(tp);
@@ -256,9 +266,8 @@ namespace rl::deeplearning::alphazero
         return action;
     }
 
-    void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr,std::vector<float> &observations, std::vector<float> &probabilities, std::vector<float> &wdls)
+    void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr,torch::optim::Optimizer& optimizer_ref,std::vector<float> &observations, std::vector<float> &probabilities, std::vector<float> &wdls)
     {
-        torch::optim::AdamW optimizer(network_ptr->parameters(), torch::optim::AdamWOptions{lr_}.eps(1e-8).weight_decay(1e-4));
         std::array<int, 3> observation_shape = initial_state_ptr_->get_observation_shape();
         int channels = observation_shape.at(0);
         int rows = observation_shape.at(1);
@@ -315,14 +324,14 @@ namespace rl::deeplearning::alphazero
                 torch::Tensor critic_loss = cross_entropy_loss_(target_wdl_batch, predicted_wdls);
 
                 torch::Tensor total_loss = actor_loss + critic_loss * critic_ceof_;
-                optimizer.zero_grad();
+                optimizer_ref.zero_grad();
 
                 total_loss.backward();
 
                 torch::nn::utils::clip_grad_value_(network_ptr->parameters(), 10000);
                 torch::nn::utils::clip_grad_norm_(network_ptr->parameters(), 10, 2.0, true);
 
-                optimizer.step();
+                optimizer_ref.step();
                 actor_losses.push_back(actor_loss.detach().cpu().item<float>());
                 critic_losses.push_back(critic_loss.detach().cpu().item<float>());
                 total_losses.push_back(total_loss.detach().cpu().item<float>());
@@ -352,17 +361,35 @@ namespace rl::deeplearning::alphazero
     void AlphaZero::collect_data()
     {
         int max_n_trees = states_ptrs_.size();
-        std::cout << "running " << max_n_trees << "parallel trees" << std::endl;
+        std::cout << "running " << max_n_trees << " parallel trees" << std::endl;
         int completed_episodes = 0;
         int trees_n_simulations = 0;
         auto ev_ptr = std::make_unique<NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, initial_state_ptr_->get_observation_shape());
 
         // TODO a lot of pushbacks , we can reserve some places
+
+        // Collect at least this number of episodes
         while (completed_episodes < n_episodes_)
         {
+            /*
+            Plan is to traverse multiple games/subtrees , collect states that need to evaluated
+            Send them to GPU and evaluate them all at once , then return evaluation info 
+            to the subtrees , repeat the same process for a number of simulations ,
+            then step the root states and saving training examples localy, repeat the steps for each
+            sub tree until , when a game reaches a terminal state , properly set rewards for its states
+            and send add its training examples globaly , when a certain number of episodes are done exit
+            the phase 
+            */
+
+            // Used to save the tree id that a state in rollout states belongs
             std::vector<int> trees_idx{};
+            // Used to save rollout states that needs to be evaluated
             std::vector<const rl::common::IState *> rollout_states{};
+
+            // the number of sub trees
             int current_n_trees = static_cast<int>(subtrees_.size());
+
+            // collect states to be evaluated for each tree
             for (int i = 0; i < current_n_trees; i++)
             {
                 auto &subtree = subtrees_.at(i);
@@ -545,6 +572,6 @@ namespace rl::deeplearning::alphazero
     }
     std::unique_ptr<AmctsSubTree2> AlphaZero::get_new_subtree_ptr()
     {
-        return std::make_unique<AmctsSubTree2>(n_game_actions_, 2.0f, 1.0f, N_VISITS, N_WINS);
+        return std::make_unique<AmctsSubTree2>(n_game_actions_, CPUCT, 1.0f, N_VISITS, N_WINS);
     }
 } // namespace rl::DeepLearning::alphazero
