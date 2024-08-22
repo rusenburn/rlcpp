@@ -6,7 +6,7 @@
 #include "santorini/santorini_tournament_ui.hpp"
 #include <string>
 
-int main(int argc, char const *argv[])
+int main(int argc, char const* argv[])
 {
     std::string a;
     std::getline(std::cin, a);
@@ -15,13 +15,13 @@ int main(int argc, char const *argv[])
     {
         return 0;
     }
-    Color GREY = {29, 29, 29, 255};
+    Color GREY = { 29, 29, 29, 255 };
 
     constexpr int WINDOW_W = 720;
     constexpr int WINDOW_H = 720;
     constexpr int FPS = 12;
-    
-    rl::ui::SantoriniTournamentUI ui{WINDOW_W, WINDOW_H};
+
+    rl::ui::SantoriniTournamentUI ui{ WINDOW_W, WINDOW_H };
 
     InitWindow(WINDOW_W, WINDOW_H, "Reinforcement Learning");
     ui.init();

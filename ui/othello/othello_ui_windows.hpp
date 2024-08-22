@@ -3,11 +3,11 @@
 
 namespace rl::ui
 {
-    enum class OthelloWindow
-    {
-        menu = 1,
-        game = 2,
-    };
+enum class OthelloWindow
+{
+    menu = 1,
+    game = 2,
+};
 } // namespace rl::ui
 
 #endif

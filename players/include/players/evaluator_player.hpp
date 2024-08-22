@@ -7,16 +7,16 @@
 #include <memory>
 namespace rl::players
 {
-    class EvaluatorPlayer : public rl::common::IPlayer
-    {
-    private:
-        std::unique_ptr<IEvaluator> evaluator_ptr_;
+class EvaluatorPlayer : public rl::common::IPlayer
+{
+private:
+    std::unique_ptr<IEvaluator> evaluator_ptr_;
 
-    public:
-        EvaluatorPlayer(std::unique_ptr<IEvaluator> evaluator_ptr);
-        ~EvaluatorPlayer() override;
-        int choose_action(const std::unique_ptr<rl::common::IState> &state_ptr);
-    };
+public:
+    EvaluatorPlayer(std::unique_ptr<IEvaluator> evaluator_ptr);
+    ~EvaluatorPlayer() override;
+    int choose_action(const std::unique_ptr<rl::common::IState>& state_ptr);
+};
 
 } // namespace rl::players
 

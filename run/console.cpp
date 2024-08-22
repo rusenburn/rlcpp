@@ -3,5 +3,5 @@
 #include "console.hpp"
 namespace rl::run
 {
-    IConsole::~IConsole() = default;
+IConsole::~IConsole() = default;
 } // namespace rl::run

@@ -3,14 +3,14 @@
 
 namespace rl::ui
 {
-    
+
 } // namespace rl::ui
 
 enum class DammaWindow
-    {
-        menu = 1,
-        game = 2,
-    };
+{
+    menu = 1,
+    game = 2,
+};
 
 
 #endif

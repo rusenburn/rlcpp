@@ -121,5 +121,10 @@
             }
         }
     },
-    "cmake.buildDirectory": "${workspaceRoot}/build/${buildType}"
+    "cmake.buildDirectory": "${workspaceRoot}/build/${buildType}",
+    "C_Cpp.vcFormat.indent.namespaceContents": false,
+    "C_Cpp.formatting": "vcFormat",
+    "C_Cpp.vcFormat.space.beforeEmptySquareBrackets": false,
+    "C_Cpp.inlayHints.referenceOperator.enabled": true,
+    "C_Cpp.inlayHints.parameterNames.enabled": true
 }

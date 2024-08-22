@@ -8,26 +8,26 @@
 #include <deeplearning/alphazero/networks/az.hpp>
 namespace rl::deeplearning
 {
-    class NetworkEvaluator : public rl::players::IEvaluator
-    {
-    private:
-        std::unique_ptr<rl::deeplearning::alphazero::IAlphazeroNetwork> network_ptr_;
-        int n_actions_;
-        std::array<int,3> observation_shape_;
-        void evaluate(const std::vector<const rl::common::IState *> &state_ptrs_vec, std::vector<float> &probs_out, std::vector<float> &values_out);
+class NetworkEvaluator : public rl::players::IEvaluator
+{
+private:
+    std::unique_ptr<rl::deeplearning::alphazero::IAlphazeroNetwork> network_ptr_;
+    int n_actions_;
+    std::array<int, 3> observation_shape_;
+    void evaluate(const std::vector<const rl::common::IState*>& state_ptrs_vec, std::vector<float>& probs_out, std::vector<float>& values_out);
 
-    public:
-        NetworkEvaluator(std::unique_ptr<rl::deeplearning::alphazero::IAlphazeroNetwork> network_ptr,
-                         int n_actions,
-                         const std::array<int,3> &observation_shape);
-        ~NetworkEvaluator()override;
-        std::tuple<std::vector<float>, std::vector<float>> evaluate(const std::vector<const rl::common::IState *> &state_ptrs) override;
-        std::tuple<std::vector<float>, std::vector<float>> evaluate(const rl::common::IState *state_ptrs) override;
+public:
+    NetworkEvaluator(std::unique_ptr<rl::deeplearning::alphazero::IAlphazeroNetwork> network_ptr,
+        int n_actions,
+        const std::array<int, 3>& observation_shape);
+    ~NetworkEvaluator()override;
+    std::tuple<std::vector<float>, std::vector<float>> evaluate(const std::vector<const rl::common::IState*>& state_ptrs) override;
+    std::tuple<std::vector<float>, std::vector<float>> evaluate(const rl::common::IState* state_ptrs) override;
 
-        std::tuple<std::vector<float>, std::vector<float>> evaluate(const std::unique_ptr<rl::common::IState> &state_ptrs) override;
-        std::unique_ptr<rl::players::IEvaluator> clone() const override;
-        std::unique_ptr<rl::players::IEvaluator> copy() const override;
-    };
+    std::tuple<std::vector<float>, std::vector<float>> evaluate(const std::unique_ptr<rl::common::IState>& state_ptrs) override;
+    std::unique_ptr<rl::players::IEvaluator> clone() const override;
+    std::unique_ptr<rl::players::IEvaluator> copy() const override;
+};
 
 } // namespace rl::evaluators
 

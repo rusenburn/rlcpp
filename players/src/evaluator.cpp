@@ -2,5 +2,5 @@
 
 namespace rl::players
 {
-    IEvaluator::~IEvaluator() = default;
+IEvaluator::~IEvaluator() = default;
 } // namespace rl::players

@@ -2,5 +2,5 @@
 
 namespace rl::common
 {
-    IPlayer::~IPlayer() = default;
+IPlayer::~IPlayer() = default;
 } // namespace rl::common

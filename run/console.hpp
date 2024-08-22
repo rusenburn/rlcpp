@@ -6,12 +6,12 @@
 namespace rl::run
 {
 
-    class IConsole
-    {
-    public:
-        virtual ~IConsole();
-        virtual void run() = 0;
-    };
+class IConsole
+{
+public:
+    virtual ~IConsole();
+    virtual void run() = 0;
+};
 } // namespace rl::run
 
 #endif

@@ -5,19 +5,19 @@
 
 namespace rl::deeplearning::alphazero
 {
-    class SqueezeAndExciteImpl : public torch::nn::Module
-    {
-    private:
-        int channels_;
-        torch::nn::Sequential prepare_;
-        torch::nn::Sequential fcs_;
+class SqueezeAndExciteImpl : public torch::nn::Module
+{
+private:
+    int channels_;
+    torch::nn::Sequential prepare_;
+    torch::nn::Sequential fcs_;
 
-    public:
-        SqueezeAndExciteImpl(int channels, int squeeze_rate);
-        ~SqueezeAndExciteImpl();
-        torch::Tensor forward(torch::Tensor state, torch::Tensor input_);
-    };
-    TORCH_MODULE(SqueezeAndExcite);
+public:
+    SqueezeAndExciteImpl(int channels, int squeeze_rate);
+    ~SqueezeAndExciteImpl();
+    torch::Tensor forward(torch::Tensor state, torch::Tensor input_);
+};
+TORCH_MODULE(SqueezeAndExcite);
 
 } // namespace rl::deeplearning::alphazero
 

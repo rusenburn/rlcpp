@@ -6,18 +6,18 @@
 namespace rl::deeplearning::alphazero
 {
 
-    class ResBlockSEImpl : public torch::nn::Module
-    {
-    private:
-        torch::nn::Sequential block_;
-        SqueezeAndExcite se_;
+class ResBlockSEImpl : public torch::nn::Module
+{
+private:
+    torch::nn::Sequential block_;
+    SqueezeAndExcite se_;
 
-    public:
-        ResBlockSEImpl(int n_channels);
-        ~ResBlockSEImpl();
-        torch::Tensor forward(torch::Tensor state);
-    };
-    TORCH_MODULE(ResBlockSE);
+public:
+    ResBlockSEImpl(int n_channels);
+    ~ResBlockSEImpl();
+    torch::Tensor forward(torch::Tensor state);
+};
+TORCH_MODULE(ResBlockSE);
 
 } // namespace rl::deeplearning::alphazero
 

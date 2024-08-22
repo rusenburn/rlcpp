@@ -4,14 +4,14 @@
 
 namespace rl::players
 {
-    class RandomActionPlayer : public rl::common::IPlayer
-    {
-    private:
-    public:
-        RandomActionPlayer();
-        ~RandomActionPlayer() override;
-        int choose_action(const std::unique_ptr<rl::common::IState> &state_ptr) override;
-    };
+class RandomActionPlayer : public rl::common::IPlayer
+{
+private:
+public:
+    RandomActionPlayer();
+    ~RandomActionPlayer() override;
+    int choose_action(const std::unique_ptr<rl::common::IState>& state_ptr) override;
+};
 
 } // namespace rl::players
 

@@ -4,12 +4,12 @@
 
 namespace rl::deeplearning::alphazero
 {
-    enum class NetworkType
-    {
-        SmallAlpha = 1,
-        SharedResidualNetwork = 2
+enum class NetworkType
+{
+    SmallAlpha = 1,
+    SharedResidualNetwork = 2
 
-    };
+};
 } // namespace rl::deeplearning::alphazero
 
 

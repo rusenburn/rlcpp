@@ -2,5 +2,5 @@
 
 namespace rl::deeplearning::alphazero
 {
-    IAlphazeroNetwork::~IAlphazeroNetwork() = default;
+IAlphazeroNetwork::~IAlphazeroNetwork() = default;
 }

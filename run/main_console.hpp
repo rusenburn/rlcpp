@@ -6,16 +6,16 @@
 #include "match_console.hpp"
 namespace rl::run
 {
-    class MainConsole : public IConsole
-    {
-    private:
-        TrainAIConsole train_ai_console_{};
-        MatchConsole match_console_{};
-    public:
-        MainConsole(/* args */);
-        ~MainConsole();
-        void run() override;
-    };
+class MainConsole : public IConsole
+{
+private:
+    TrainAIConsole train_ai_console_{};
+    MatchConsole match_console_{};
+public:
+    MainConsole(/* args */);
+    ~MainConsole();
+    void run() override;
+};
 } // namespace rl::run
 
 #endif

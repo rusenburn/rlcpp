@@ -2,5 +2,5 @@
 
 namespace rl::ui
 {
-    IGameui::~IGameui() = default;
+IGameui::~IGameui() = default;
 } // namespace rl::ui

@@ -9,21 +9,21 @@
 #include <common/state.hpp>
 namespace rl::players
 {
-    class G : public ISearchTree
-    {
-        using IState = rl::common::IState;
+class G : public ISearchTree
+{
+    using IState = rl::common::IState;
 
-    private:
-        int n_game_actions_;
-        int min_ref_count_;
-        float bias_;
-        bool save_illegal_amaf_actions_;
+private:
+    int n_game_actions_;
+    int min_ref_count_;
+    float bias_;
+    bool save_illegal_amaf_actions_;
 
-    public:
-        G(int n_game_actions, int min_ref_count, float bias, bool save_illegal_actions_amaf);
-        ~G() override;
-        std::vector<float> search(const rl::common::IState *state_ptr, int minimum_no_simulations, std::chrono::duration<int, std::milli> minimum_duration) override;
-    };
+public:
+    G(int n_game_actions, int min_ref_count, float bias, bool save_illegal_actions_amaf);
+    ~G() override;
+    std::vector<float> search(const rl::common::IState* state_ptr, int minimum_no_simulations, std::chrono::duration<int, std::milli> minimum_duration) override;
+};
 } // namespace rl::players
 
 #endif

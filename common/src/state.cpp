@@ -2,5 +2,5 @@
 
 namespace rl::common
 {
-    rl::common::IState::~IState() = default;
+rl::common::IState::~IState() = default;
 } // namespace rl::common
