@@ -47,6 +47,25 @@ std::unique_ptr<PlayerInfoFull> get_network_amcts_player(rl::common::IState* sta
 
 }
 
+std::unique_ptr<PlayerInfoFull> get_network_amcts2_player(rl::common::IState* state_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name)
+{
+    auto network_ptr = std::make_unique<rl::deeplearning::alphazero::SharedResNetwork>(state_ptr->get_observation_shape(), state_ptr->get_n_actions(),
+        128, 512, 5);
+    std::stringstream ss;
+    auto device = torch::cuda::is_available() ? torch::kCUDA : torch::kCPU;
+    const std::string folder_name = "../checkpoints";
+    std::filesystem::path folder(folder_name);
+    std::filesystem::path file_path;
+    file_path = folder / load_name;
+    network_ptr->load(file_path.string());
+    network_ptr->to(device);
+    auto ev_ptr = std::make_unique<rl::deeplearning::NetworkEvaluator>(std::move(network_ptr), state_ptr->get_n_actions(), state_ptr->get_observation_shape());
+    ev_ptr->evaluate(state_ptr);
+    auto player_ptr = std::make_unique<rl::players::Amcts2Player>(state_ptr->get_n_actions(), std::move(ev_ptr), n_sims, minimum_duration, 0.5f, 1.25f, 8);
+    ss << "AMCTS2 NN " << load_name;
+    return std::make_unique<PlayerInfoFull>(std::move(player_ptr), ss.str());
+}
+
 std::unique_ptr<PlayerInfoFull> get_network_mcts_player(rl::common::IState* state_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name)
 {
     auto network_ptr = std::make_unique<rl::deeplearning::alphazero::SharedResNetwork>(state_ptr->get_observation_shape(), state_ptr->get_n_actions(),

@@ -93,7 +93,6 @@
         "__split_buffer": "cpp"
     },
     "cmake.defaultVariants": {
-
         "buildType": {
             "default": "debug",
             "description": "The build type.",
@@ -102,11 +101,17 @@
                     "short": "Debug",
                     "long": "Disable optimizations - include debug information.",
                     "buildType": "Debug",
+                    "settings":{
+                        "CMAKE_PREFIX_PATH" : "C:/libtorch-win-shared-with-deps-debug-2.2.1+cu118/libtorch"
+                    }
                 },
                 "release": {
                     "short": "Release",
                     "long": "Optimize for speed - exclude debug information.",
                     "buildType": "Release",
+                    "settings":{
+                        "CMAKE_PREFIX_PATH" : "C:/libtorch-win-shared-with-deps-2.2.1+cu118/libtorch"
+                    }
                 },
                 "minsize": {
                     "short": "MinSizeRel",
@@ -126,5 +131,5 @@
     "C_Cpp.formatting": "vcFormat",
     "C_Cpp.vcFormat.space.beforeEmptySquareBrackets": false,
     "C_Cpp.inlayHints.referenceOperator.enabled": true,
-    "C_Cpp.inlayHints.parameterNames.enabled": true
+    "C_Cpp.inlayHints.parameterNames.enabled": true,
 }

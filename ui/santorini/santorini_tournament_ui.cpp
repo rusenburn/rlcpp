@@ -62,20 +62,19 @@ void SantoriniTournamentUI::dispose()
 std::unique_ptr<rl::common::RoundRobin> SantoriniTournamentUI::get_new_round_robin()
 {
 	players_.clear();
-	constexpr int n_games_per_opponent = 10;
+	constexpr int n_games_per_opponent = 2;
 	auto players_duration = std::chrono::duration<int, std::milli>(1000);
-	// players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_120.pt"));
-	// players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_180.pt"));
+	
 	players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_220.pt"));
-	players_.push_back(get_network_mcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_220.pt"));
+	players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_220.pt"));
 	players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_340.pt"));
-	players_.push_back(get_network_mcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_340.pt"));
+	players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_340.pt"));
 	players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_380.pt"));
-	players_.push_back(get_network_mcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_380.pt"));
-	players_.push_back(get_network_mcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_410.pt"));
+	players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_380.pt"));
 	players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_410.pt"));
+	players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_410.pt"));
 	players_.push_back(get_network_amcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_470.pt"));
-	players_.push_back(get_network_mcts_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_470.pt"));
+	players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_470.pt"));
 
 
 	std::vector<rl::common::PlayerInfo> players_info{};

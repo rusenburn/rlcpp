@@ -97,7 +97,7 @@ std::vector<float> get_dirichlet_noise(const std::vector<bool>& actions_mask, fl
                 sum_legal_actions += 1;
             }
         }
-        alpha = 10 / sum_legal_actions;
+        alpha = 10.0f / sum_legal_actions;
     }
     std::gamma_distribution<> gamma(alpha, 1);
 

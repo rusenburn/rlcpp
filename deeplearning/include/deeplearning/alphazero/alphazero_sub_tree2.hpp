@@ -34,7 +34,7 @@ struct AmctsInfo2
 class AmctsSubTree2
 {
 private:
-    int n_game_actions_, max_async_simulations_;
+    int n_game_actions_;
     float default_n_, default_w_;
     float cpuct_;
     float temperature_;

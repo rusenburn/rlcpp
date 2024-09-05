@@ -389,6 +389,7 @@ void AlphaZero::collect_data()
         // the number of sub trees
         int current_n_trees = static_cast<int>(subtrees_.size());
 
+        
         // collect states to be evaluated for each tree
         for (int i = 0; i < current_n_trees; i++)
         {

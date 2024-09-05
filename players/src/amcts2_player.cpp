@@ -1,11 +1,9 @@
-#include <players/amcts_player.hpp>
-
-#include <players/amcts_player.hpp>
-#include <players/amcts.hpp>
+#include <players/amcts2_player.hpp>
+#include <players/bandits/amcts2/amcts2.hpp>
 #include <common/random.hpp>
 namespace rl::players
 {
-AmctsPlayer::AmctsPlayer(
+Amcts2Player::Amcts2Player(
     int n_game_actions,
     std::unique_ptr<IEvaluator> evaluator_ptr,
     int minimum_simulations,
@@ -15,6 +13,7 @@ AmctsPlayer::AmctsPlayer(
     int max_async_simulations,
     float default_visits,
     float default_wins)
+
     : n_game_actions_{ n_game_actions },
     evaluator_ptr_{ std::move(evaluator_ptr) },
     minimum_simulations_{ minimum_simulations },
@@ -27,11 +26,12 @@ AmctsPlayer::AmctsPlayer(
 {
 }
 
-AmctsPlayer::~AmctsPlayer() = default;
 
-int AmctsPlayer::choose_action(const std::unique_ptr<rl::common::IState>& state_ptr)
+Amcts2Player::~Amcts2Player()=default;
+
+int Amcts2Player::choose_action(const std::unique_ptr<rl::common::IState>& state_ptr)
 {
-    auto mcts = Amcts(n_game_actions_, evaluator_ptr_->copy(), cpuct_, temperature_, max_async_simulations_, default_visits_, default_wins_);
+    auto mcts = Amcts2(n_game_actions_, evaluator_ptr_->copy(), cpuct_, temperature_, max_async_simulations_, default_visits_, default_wins_);
     std::vector<float> probs = mcts.search(state_ptr.get(), minimum_simulations_, duration_in_millis_);
 
     float p = rl::common::get();
@@ -51,3 +51,4 @@ int AmctsPlayer::choose_action(const std::unique_ptr<rl::common::IState>& state_
     return action;
 }
 } // namespace rl::players
+

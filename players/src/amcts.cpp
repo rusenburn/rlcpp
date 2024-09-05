@@ -106,7 +106,7 @@ std::vector<float> Amcts::search_root(const rl::common::IState* root_ptr, int mi
     }
 
     evaluate_collected_states();
-    // std::cout << "Amsts: " <<simulations_count << std::endl;
+    // std::cout << "Amcts: " <<simulations_count << std::endl;
     return get_probs(root_ptr);
 }
 

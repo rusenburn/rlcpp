@@ -343,7 +343,6 @@ void AmctsSubTree2::evaluate_collected_states(std::tuple<std::vector<float>, std
     std::vector<const rl::common::IState*> states_ptrs(n_states, nullptr);
     for (int i{ 0 }; i < n_states; i++)
     {
-        // states_ptrs.push_back(std::get<0>(rollouts_.at(i)));
         states_ptrs.at(i) = std::get<0>(rollouts_.at(i));
     }
     std::vector<float>& probs = std::get<0>(evaluations_tuple);
