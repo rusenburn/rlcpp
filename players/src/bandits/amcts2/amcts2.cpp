@@ -57,7 +57,7 @@ std::vector<float> Amcts2::search(const rl::common::IState* state_ptr, int minim
 
     while (simulations_count <= minimum_no_simulations)
     {
-        roll();
+        roll(false);
         simulations_count++;
         if (simulations_count % max_async_simulations_ == 0)
         {
@@ -73,7 +73,7 @@ std::vector<float> Amcts2::search(const rl::common::IState* state_ptr, int minim
 
     while (t_end > std::chrono::high_resolution_clock::now())
     {
-        roll();
+        roll(false);
         simulations_count++;
         if (simulations_count % max_async_simulations_ == 0)
         {
@@ -99,11 +99,11 @@ void players::Amcts2::set_root(const rl::common::IState* state_ptr)
     root_node_ = std::make_unique<Amcts2Node>(state_ptr->clone(), state_ptr->get_n_actions(), cpuct_);
     // root_node_->expand_node();
 }
-void players::Amcts2::roll()
+void players::Amcts2::roll(bool use_dirichlet_noise)
 {
     rollouts_.push_back(std::make_pair<rl::common::IState*, std::vector<Amcts2Info>>(nullptr, {}));
     auto& rollout_info = rollouts_.back();
-    root_node_->simulate_once(rollout_info, false, default_n_, default_w_,root_node_.get());
+    root_node_->simulate_once(rollout_info, use_dirichlet_noise, default_n_, default_w_,root_node_.get());
     if (rollout_info.first == nullptr)
     {
         rollouts_.pop_back();

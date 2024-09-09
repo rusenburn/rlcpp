@@ -18,7 +18,7 @@ public:
     std::vector<float> search(const rl::common::IState* state_ptr, int minimum_no_simulations, std::chrono::duration<int, std::milli> minimum_duration) override;
 
     void set_root(const rl::common::IState* state_ptr);
-    void roll();
+    void roll(bool use_dirichlet_noise);
     std::vector<const rl::common::IState*> get_rollouts();
     void evaluate_collected_states(std::tuple<std::vector<float>, std::vector<float>>& evaluations_tuple);
     std::vector<float> get_probs();

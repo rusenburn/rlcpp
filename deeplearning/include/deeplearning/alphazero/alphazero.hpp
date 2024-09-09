@@ -6,6 +6,7 @@
 #include <common/state.hpp>
 #include "alphazero_sub_tree.hpp"
 #include "alphazero_sub_tree2.hpp"
+#include <players/bandits/amcts2/amcts2.hpp>
 #include <torch/torch.h>
 
 namespace rl::deeplearning::alphazero
@@ -33,7 +34,7 @@ private:
     std::vector<float> all_probabilities_{};
     std::vector<float> all_wdls_{};
     std::vector<std::unique_ptr<rl::common::IState>> states_ptrs_{};
-    std::vector<std::unique_ptr<AmctsSubTree2>> subtrees_{};
+    std::vector<std::unique_ptr<players::Amcts2>> subtrees_{};
     std::vector<std::vector<float>> episode_obsevations_{};
     std::vector<std::vector<float>> episode_probs_{};
     std::vector<std::vector<float>> episode_wdls_{};
@@ -45,7 +46,7 @@ private:
     static torch::Tensor cross_entropy_loss_(torch::Tensor& target, torch::Tensor& prediction);
     void collect_data();
     void end_subtree(int subtree_id, int last_player, float result);
-    std::unique_ptr<AmctsSubTree2> get_new_subtree_ptr();
+    std::unique_ptr<players::Amcts2> AlphaZero::get_new_subtree_ptr();
 
 
 public:
@@ -65,7 +66,7 @@ public:
         std::string load_path = "",
         std::string save_name = "temp.pt");
     void train();
-    void execute_episode(std::vector<float>& observations, std::vector<float>& probabilities, std::vector<float>& wdls, bool is_use_network);
+    // void execute_episode(std::vector<float>& observations, std::vector<float>& probabilities, std::vector<float>& wdls, bool is_use_network);
     ~AlphaZero();
 };
 

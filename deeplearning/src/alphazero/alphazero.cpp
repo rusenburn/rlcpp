@@ -8,6 +8,7 @@
 #include <common/utils.hpp>
 #include <players/amcts_player.hpp>
 #include <players/amcts.hpp>
+#include <players/bandits/amcts2/amcts2.hpp>
 #include <players/random_rollout_evaluator.hpp>
 #include <deeplearning/network_evaluator.hpp>
 #include <common/match.hpp>
@@ -191,67 +192,6 @@ void AlphaZero::train()
     }
 }
 
-void AlphaZero::execute_episode(std::vector<float>& observations_out, std::vector<float>& probabilities_out, std::vector<float>& wdls_out, bool is_use_network)
-{
-    torch::NoGradGuard nograd;
-    auto state_ptr = initial_state_ptr_->reset();
-    std::vector<int> players;
-    std::unique_ptr<rl::players::IEvaluator> ev_ptr{ nullptr };
-    int max_async = N_ASYNC;
-    int n_sims = n_sims_;
-    if (is_use_network)
-    {
-        ev_ptr = std::make_unique<NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, state_ptr->get_observation_shape());
-    }
-    else
-    {
-        ev_ptr = std::make_unique<rl::players::RandomRolloutEvaluator>(initial_state_ptr_->get_n_actions());
-        max_async = 1;
-    }
-    auto search_tree = rl::players::Amcts(n_game_actions_, std::move(ev_ptr), 2.0f, 1.0f, max_async, N_VISITS, N_WINS);
-    std::chrono::duration<int, std::milli> zero_duration{ 0 };
-    while (!state_ptr->is_terminal())
-    {
-        int current_player = state_ptr->player_turn();
-        players.push_back(current_player);
-
-        std::vector<float> probs = search_tree.search(state_ptr.get(), n_sims, zero_duration);
-        for (float cell : state_ptr->get_observation())
-        {
-            observations_out.push_back(cell);
-        }
-        for (float p : probs)
-        {
-            probabilities_out.push_back(p);
-        }
-        int action = choose_action(probs);
-        state_ptr = state_ptr->step(action);
-    }
-
-    int last_player = state_ptr->player_turn();
-    float result = state_ptr->get_reward();
-
-    // convert result to win draw loss
-    float win = result > 0.001f ? 1.0f : 0.0f;
-    float loss = result < -0.001f ? 1.0f : 0.0f;
-    float draw = result <= 0.001f && result >= -0.001f ? 1.0f : 0.0f;
-    for (auto p : players)
-    {
-        if (last_player == p)
-        {
-            wdls_out.push_back(win);
-            wdls_out.push_back(draw);
-            wdls_out.push_back(loss);
-        }
-        else
-        {
-            wdls_out.push_back(loss);
-            wdls_out.push_back(draw);
-            wdls_out.push_back(win);
-        }
-    }
-}
-
 int AlphaZero::choose_action(std::vector<float>& probs)
 {
     float p = rl::common::get();
@@ -383,84 +323,84 @@ void AlphaZero::collect_data()
 
         // Used to save the tree id that a state in rollout states belongs
         std::vector<int> trees_idx{};
-        // Used to save rollout states that needs to be evaluated
-        std::vector<const rl::common::IState*> rollout_states{};
+        
 
         // the number of sub trees
         int current_n_trees = static_cast<int>(subtrees_.size());
 
-        
-        // collect states to be evaluated for each tree
-        for (int i = 0; i < current_n_trees; i++)
+        for (int i = 0;i < current_n_trees;i++)
         {
-            auto& subtree = subtrees_.at(i);
-            auto& state = states_ptrs_.at(i);
-            for (int j = 0; j < N_SUB_TREE_ASYNC; j++)
-            {
-                subtree->roll(state.get());
-            }
-            auto tree_rollouts = subtree->get_rollouts();
-            int rollouts_size = tree_rollouts.size();
-            for (int j = 0; j < rollouts_size; j++)
-            {
-                auto state_ptr = tree_rollouts.at(j);
-                rollout_states.push_back(state_ptr);
-                trees_idx.push_back(i);
-            }
+            subtrees_.at(i)->set_root(states_ptrs_.at(i).get());
         }
+        for (int sim = 0;sim < n_sims_/N_SUB_TREE_ASYNC;sim++)
+        {
+            // Used to save rollout states that needs to be evaluated
+            std::vector<const rl::common::IState*> rollout_states{};
+            for (int tree_idx = 0;tree_idx < current_n_trees;tree_idx++)
+            {
+                constexpr bool USE_DIRICHLET_NOISE{ true };
+                auto& subtree = subtrees_.at(tree_idx);
+                for(int async_roll=0;async_roll<N_SUB_TREE_ASYNC;async_roll++)
+                {
+                    subtree->roll(USE_DIRICHLET_NOISE);
+                }
+                auto tree_rollouts = subtree->get_rollouts();
+                subtree->clear_rollout();
+                for (auto state_ptr : tree_rollouts)
+                {
+                    rollout_states.push_back(state_ptr);
+                    trees_idx.push_back(tree_idx);
+                }
+            }
 
-        std::vector<std::tuple<std::vector<float>, std::vector<float>>> trees_evaluations{};
-        for (int i = 0; i < current_n_trees; i++)
-        {
-            trees_evaluations.push_back(std::make_tuple<std::vector<float>, std::vector<float>>(
-                std::vector<float>(), std::vector<float>()));
-        }
-        auto [probs, vs] = ev_ptr->evaluate(rollout_states);
-        for (int i = 0; i < rollout_states.size(); i++)
-        {
-            int probs_start = i * n_game_actions_;
-            int probs_end = probs_start + n_game_actions_;
-            int current_tree_id = trees_idx.at(i);
-            std::vector<float>& current_probs_ref = std::get<0>(trees_evaluations.at(current_tree_id));
-            std::vector<float>& current_vs_ref = std::get<1>(trees_evaluations.at(current_tree_id));
-            for (int j = probs_start; j < probs_end; j++)
+            std::vector<std::tuple<std::vector<float>, std::vector<float>>> trees_evaluations{};
+            for (int tree_idx = 0;tree_idx < current_n_trees;tree_idx++)
             {
-                current_probs_ref.push_back(probs.at(j));
+                trees_evaluations.push_back(std::make_tuple<std::vector<float>, std::vector<float>>(
+                    std::vector<float>(), std::vector<float>()));
             }
-            current_vs_ref.push_back(vs.at(i));
-        }
-        for (int i = 0; i < current_n_trees; i++)
-        {
-            auto& current_sub_tree = subtrees_.at(i);
-            auto& current_evaluation_tuple = trees_evaluations.at(i);
-            current_sub_tree->evaluate_collected_states(current_evaluation_tuple);
-        }
-        trees_n_simulations += N_SUB_TREE_ASYNC;
+            auto& [probs, vs] = ev_ptr->evaluate(rollout_states);
+            int n_rollouts = rollout_states.size();
+            for (int rollout_id = 0; rollout_id < n_rollouts; rollout_id++)
+            {
+                int probs_start = rollout_id * n_game_actions_;
+                int probs_end = probs_start + n_game_actions_;
+                int current_tree_id = trees_idx.at(rollout_id);
+                std::vector<float>& current_probs_ref = std::get<0>(trees_evaluations.at(current_tree_id));
+                std::vector<float>& current_vs_ref = std::get<1>(trees_evaluations.at(current_tree_id));
+                for (int cell = probs_start; cell < probs_end; cell++)
+                {
+                    current_probs_ref.push_back(probs.at(cell));
+                }
+                current_vs_ref.push_back(vs.at(rollout_id));
+            }
 
-        if (trees_n_simulations < n_sims_)
+            for (int tree_id = 0; tree_id < current_n_trees; tree_id++)
+            {
+                auto& current_sub_tree = subtrees_.at(tree_id);
+                auto& current_evaluation_tuple = trees_evaluations.at(tree_id);
+                current_sub_tree->evaluate_collected_states(current_evaluation_tuple);
+            }
+        } // end sims
+
+        for (int tree_id=0;tree_id<current_n_trees;tree_id++)
         {
-            continue;
-        }
-        trees_n_simulations = 0;
-        for (int i = 0; i < current_n_trees; i++)
-        {
-            auto& subtree = subtrees_.at(i);
-            auto& state_ptr = states_ptrs_.at(i);
+            auto& subtree = subtrees_.at(tree_id);
+            auto& state_ptr = states_ptrs_.at(tree_id);
             int current_player = state_ptr->player_turn();
-            episode_players_.at(i).push_back(current_player);
-            std::vector<float> state_probs = subtree->get_probs(state_ptr.get());
-            float ev = subtree->get_evaluation(state_ptr.get());
+            episode_players_.at(tree_id).push_back(current_player);
+            std::vector<float> state_probs = subtree->get_probs();
+            float ev = subtree->get_evaluation();
 
             auto current_obs = state_ptr->get_observation();
             for (float cell : current_obs)
             {
-                episode_obsevations_.at(i).push_back(cell);
+                episode_obsevations_.at(tree_id).push_back(cell);
             }
             for (float p : state_probs)
             {
-                episode_probs_.at(i).push_back(p);
+                episode_probs_.at(tree_id).push_back(p);
             }
-
             std::vector<std::vector<float>> obs_syms_vector;
             std::vector<std::vector<float>> probs_sym_vector;
             state_ptr->get_symmetrical_obs_and_actions(current_obs, state_probs, obs_syms_vector, probs_sym_vector);
@@ -473,48 +413,48 @@ void AlphaZero::collect_data()
             {
                 for (float cell : obs_sym)
                 {
-                    episode_obsevations_.at(i).push_back(cell);
+                    episode_obsevations_.at(tree_id).push_back(cell);
                 }
                 // push current player equal to the number of symmertical observations
                 // wdl is counting on it
-                episode_players_.at(i).push_back(current_player);
+                episode_players_.at(tree_id).push_back(current_player);
             }
 
             for (auto& probs_sym : probs_sym_vector)
             {
                 for (float p : probs_sym)
                 {
-                    episode_probs_.at(i).push_back(p);
+                    episode_probs_.at(tree_id).push_back(p);
                 }
             }
 
-            bool is_complete_to_end = i < N_COMPLETE_TO_END;
+            bool is_complete_to_end = tree_id < N_COMPLETE_TO_END;
             /*
             should resign if all these condition is met:
             * if minimum number of steps is played and
             * if this sub tree is not forced to complete to end and
             * if the current state evaluation is too low
             */
-            if (episode_steps_.at(i) >= MINIMUM_STEPS && is_complete_to_end == false && ev < NO_RESIGN_THRESHOLD)
+           if (episode_steps_.at(tree_id) >= MINIMUM_STEPS && is_complete_to_end == false && ev < NO_RESIGN_THRESHOLD)
             {
                 int last_player = state_ptr->player_turn();
                 float result = -1.0f;
-                end_subtree(i, last_player, result);
+                end_subtree(tree_id, last_player, result);
                 completed_episodes++;
             }
             else
             {
-                int episode_length = episode_steps_.at(i);
+                int episode_length = episode_steps_.at(tree_id);
                 float temperature = episode_length > 30 ? powf(0.5, (episode_length - 30) / 30) : 1.0f;
                 std::vector<float> probs_with_temp = rl::common::utils::apply_temperature(state_probs, temperature);
                 int action = choose_action(probs_with_temp);
                 state_ptr = state_ptr->step(action);
-                episode_steps_.at(i)++;
+                episode_steps_.at(tree_id)++;
                 if (state_ptr->is_terminal())
                 {
                     int last_player = state_ptr->player_turn();
                     float result = state_ptr->get_reward();
-                    end_subtree(i, last_player, result);
+                    end_subtree(tree_id, last_player, result);
                     completed_episodes++;
                 }
             }
@@ -571,8 +511,8 @@ void AlphaZero::end_subtree(int i, int last_player, float result)
     subtrees_.at(i) = get_new_subtree_ptr();
     states_ptrs_.at(i) = initial_state_ptr_->reset();
 }
-std::unique_ptr<AmctsSubTree2> AlphaZero::get_new_subtree_ptr()
+std::unique_ptr<players::Amcts2> AlphaZero::get_new_subtree_ptr()
 {
-    return std::make_unique<AmctsSubTree2>(n_game_actions_, CPUCT, 1.0f, N_VISITS, N_WINS);
+    return std::make_unique<players::Amcts2>(n_game_actions_, nullptr, CPUCT, 1.0f, N_SUB_TREE_ASYNC, N_VISITS, N_WINS);
 }
 } // namespace rl::DeepLearning::alphazero

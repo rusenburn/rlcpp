@@ -199,7 +199,7 @@ void TrainAIConsole::train_ai()
     const std::string folder_name = "../checkpoints";
     std::filesystem::path folder(folder_name);
     std::filesystem::path file_path;
-    file_path = folder / load_name_;
+    file_path =  load_name_.size() ? (folder / load_name_) : std::filesystem::path();
     auto alphazero_trainer = rl::deeplearning::alphazero::AlphaZero(
         state_ptr->clone(),
         state_ptr->clone(),
