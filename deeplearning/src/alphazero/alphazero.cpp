@@ -36,7 +36,7 @@ constexpr float NO_RESIGN_THRESHOLD = -0.8f;
 // Players are not allowed to resign if the number of steps is below this number
 constexpr int MINIMUM_STEPS = 30;
 // MCTS CPUCT
-constexpr float CPUCT = 1.25f;
+constexpr float CPUCT = 2.5f;
 AlphaZero::AlphaZero(
     std::unique_ptr<rl::common::IState> initial_state_ptr,
     std::unique_ptr<rl::common::IState> test_state_ptr,
@@ -321,9 +321,8 @@ void AlphaZero::collect_data()
         the phase
         */
 
-        // Used to save the tree id that a state in rollout states belongs
-        std::vector<int> trees_idx{};
-        
+
+
 
         // the number of sub trees
         int current_n_trees = static_cast<int>(subtrees_.size());
@@ -332,20 +331,23 @@ void AlphaZero::collect_data()
         {
             subtrees_.at(i)->set_root(states_ptrs_.at(i).get());
         }
-        for (int sim = 0;sim < n_sims_/N_SUB_TREE_ASYNC;sim++)
+        for (int sim = 0;sim < n_sims_ / N_SUB_TREE_ASYNC;sim++)
         {
             // Used to save rollout states that needs to be evaluated
             std::vector<const rl::common::IState*> rollout_states{};
+            // Used to save the tree id that a state in rollout states belongs
+            std::vector<int> trees_idx{};
             for (int tree_idx = 0;tree_idx < current_n_trees;tree_idx++)
             {
                 constexpr bool USE_DIRICHLET_NOISE{ true };
                 auto& subtree = subtrees_.at(tree_idx);
-                for(int async_roll=0;async_roll<N_SUB_TREE_ASYNC;async_roll++)
+                subtree->clear_rollout();
+                for (int async_roll = 0;async_roll < N_SUB_TREE_ASYNC;async_roll++)
                 {
                     subtree->roll(USE_DIRICHLET_NOISE);
                 }
                 auto tree_rollouts = subtree->get_rollouts();
-                subtree->clear_rollout();
+                
                 for (auto state_ptr : tree_rollouts)
                 {
                     rollout_states.push_back(state_ptr);
@@ -383,7 +385,7 @@ void AlphaZero::collect_data()
             }
         } // end sims
 
-        for (int tree_id=0;tree_id<current_n_trees;tree_id++)
+        for (int tree_id = 0;tree_id < current_n_trees;tree_id++)
         {
             auto& subtree = subtrees_.at(tree_id);
             auto& state_ptr = states_ptrs_.at(tree_id);
@@ -435,7 +437,7 @@ void AlphaZero::collect_data()
             * if this sub tree is not forced to complete to end and
             * if the current state evaluation is too low
             */
-           if (episode_steps_.at(tree_id) >= MINIMUM_STEPS && is_complete_to_end == false && ev < NO_RESIGN_THRESHOLD)
+            if (episode_steps_.at(tree_id) >= MINIMUM_STEPS && is_complete_to_end == false && ev < NO_RESIGN_THRESHOLD)
             {
                 int last_player = state_ptr->player_turn();
                 float result = -1.0f;

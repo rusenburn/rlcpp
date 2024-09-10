@@ -15,7 +15,6 @@ set(SourceFiles
     src/alphazero/networks/tinynn.cpp
     src/alphazero/alphazero_sub_tree.cpp
     src/alphazero/alphazero_sub_tree2.cpp
-    src/alphazero/alphazero_sub_tree3.cpp
     src/alphazero/alphazero.cpp
     src/network_evaluator.cpp
     )

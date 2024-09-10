@@ -135,8 +135,8 @@ void players::Amcts2::evaluate_collected_states(std::tuple<std::vector<float>, s
     // backprob values
     for (int i{ 0 }; i < n_states; i++)
     {
-        auto& visited_path = std::get<1>(rollouts_[i]);
-        auto& state_ptr = std::get<0>(rollouts_[i]);
+        auto& visited_path = std::get<1>(rollouts_.at(i));
+        auto& state_ptr = std::get<0>(rollouts_.at(i));
         float value = values.at(i);
         std::vector<float> state_probs(n_game_actions_, 0);
         int probs_start = i * n_game_actions_;
