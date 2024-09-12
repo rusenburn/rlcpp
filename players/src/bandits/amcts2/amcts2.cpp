@@ -97,8 +97,7 @@ void players::Amcts2::set_root(const rl::common::IState* state_ptr)
     rollouts_.clear();
     assert(state_ptr->is_terminal() == false);
     root_node_ = std::make_unique<Amcts2Node>(state_ptr->clone(), state_ptr->get_n_actions(), cpuct_);
-    // root_node_->expand_node();
-}
+    }
 void players::Amcts2::roll(bool use_dirichlet_noise)
 {
     rollouts_.push_back(std::make_pair<rl::common::IState*, std::vector<Amcts2Info>>(nullptr, {}));

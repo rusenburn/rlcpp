@@ -8,6 +8,7 @@
 #include <common/utils.hpp>
 #include <players/amcts_player.hpp>
 #include <players/amcts.hpp>
+#include <players/amcts2_player.hpp>
 #include <players/bandits/amcts2/amcts2.hpp>
 #include <players/random_rollout_evaluator.hpp>
 #include <deeplearning/network_evaluator.hpp>
@@ -169,9 +170,9 @@ void AlphaZero::train()
             std::cout << "Evaluation Phase" << std::endl;
             std::chrono::duration<int, std::milli> zero_duration{ 0 };
             std::unique_ptr<rl::players::IEvaluator> ev1_ptr{ std::make_unique<rl::deeplearning::NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, observation_shape) };
-            auto p1_ptr = std::make_unique<rl::players::AmctsPlayer>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
+            auto p1_ptr = std::make_unique<rl::players::Amcts2Player>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
             std::unique_ptr<rl::players::IEvaluator> ev2_ptr{ std::make_unique<rl::deeplearning::NetworkEvaluator>(strongest->copy(), n_game_actions_, observation_shape) };
-            auto p2_ptr = std::make_unique<rl::players::AmctsPlayer>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
+            auto p2_ptr = std::make_unique<rl::players::Amcts2Player>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
             rl::common::Match m(test_state_ptr_->reset(), p1_ptr.get(), p2_ptr.get(), n_testing_episodes_, false);
             std::tuple<float, float> tp{ m.start() };
             float p1_score = std::get<0>(tp);
