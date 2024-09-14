@@ -344,6 +344,10 @@ IPlayerPtr MatchConsole::get_player(int player_type, int n_sims, std::chrono::du
         network_ptr = get_network_ptr(filters, fc_dims, blocks, load_name);
         evaluator_ptr = get_network_evaluator_ptr(network_ptr);
         return get_amcts2_player(evaluator_ptr, n_sims, minimum_duration);
+    case NETWORK_CONCURRENT_PLAYER:
+        network_ptr = get_network_ptr(filters, fc_dims, blocks, load_name);
+        evaluator_ptr = get_network_evaluator_ptr(network_ptr);
+        return get_concurrent_player(evaluator_ptr, n_sims, minimum_duration);
     default:
         throw "";
         break;
@@ -466,6 +470,11 @@ IPlayerPtr MatchConsole::get_amcts2_player(std::unique_ptr<rl::players::IEvaluat
     auto state_ptr = get_state_ptr();
     return std::make_unique<rl::players::Amcts2Player>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f, 8);
 }
+IPlayerPtr MatchConsole::get_concurrent_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration)
+{
+    auto state_ptr = get_state_ptr();
+    return std::make_unique<rl::players::ConcurrentPlayer>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f ,2.0f,8);
+}
 int MatchConsole::pick_player_type()
 {
     std::cout << "Choose Player Type\n";
@@ -480,6 +489,7 @@ int MatchConsole::pick_player_type()
     std::cout << "[8] Network player without tree\n";
     std::cout << "[9] Network MCTS CPU Player\n";
     std::cout << "[10] Network amcts2 player\n";
+    std::cout << "[11] Network Concurrent player\n";
     std::cout << std::endl;
 
     int choice;
@@ -518,6 +528,9 @@ int MatchConsole::pick_player_type()
         break;
     case 10:
         return NETWORK_AMCTS2_PLAYER;
+        break;
+    case 11:
+        return NETWORK_CONCURRENT_PLAYER;
         break;
     default:
         return -1;

@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.10.2 FATAL_ERROR)
 set(This common)
 project(${This})
 set(SourceFiles 
+    src/concurrent_match.cpp
+    src/concurrent_player.cpp
     src/exceptions.cpp
     src/match.cpp
     src/observer.cpp

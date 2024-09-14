@@ -6,6 +6,7 @@ project(${This})
 set(SourceFiles 
     src/bandits/amcts2/amcts2.cpp
     src/bandits/amcts2/amcts2_node.cpp
+    src/bandits/amcts2/concurrent_amcts.cpp
     src/bandits/grave/g_node.cpp
     src/bandits/grave/g.cpp
     src/bandits/grave/grave_node.cpp
@@ -19,6 +20,7 @@ set(SourceFiles
     src/amcts_player.cpp
     src/amcts.cpp
     src/amcts2_player.cpp
+    src/concurrent_search_tree.cpp
     src/evaluator_player.cpp
     src/evaluator.cpp
     src/grave_player.cpp

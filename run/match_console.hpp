@@ -32,6 +32,7 @@ private:
     static constexpr int NETWORK_EVALUATOR_PLAYER = 8;
     static constexpr int NETWORK_CPU_MCTS_PLAYER = 9;
     static constexpr int NETWORK_AMCTS2_PLAYER = 10;
+    static constexpr int NETWORK_CONCURRENT_PLAYER = 11;
 
     static constexpr int TIC_TAC_TOE_GAME = 0;
     static constexpr int OTHELLO_GAME = 1;
@@ -62,6 +63,7 @@ private:
     IPlayerPtr get_default_mc_rave_player(int n_sims, std::chrono::duration<int, std::milli> minimum_duration);
     IPlayerPtr get_human_player();
     IPlayerPtr get_amcts2_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration);
+    IPlayerPtr get_concurrent_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration);
     
     int pick_player_type();
 

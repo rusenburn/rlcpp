@@ -13,6 +13,7 @@
 #include <players/random_rollout_evaluator.hpp>
 #include <deeplearning/network_evaluator.hpp>
 #include <common/match.hpp>
+#include <common/concurrent_match.hpp>
 #include <deeplearning/alphazero/alphazero.hpp>
 
 
@@ -136,7 +137,7 @@ void AlphaZero::train()
     {
         auto collection_start = std::chrono::high_resolution_clock::now();
 
-        std::cout << "Iteration " << iteration + 1 << " of " << n_iterations_ << std::endl;
+        std::cout << "\nIteration " << iteration + 1 << " of " << n_iterations_ << std::endl;
 
         collect_data();
         auto collection_end = std::chrono::high_resolution_clock::now();
@@ -166,18 +167,26 @@ void AlphaZero::train()
 
         if (iteration % 20 == 0 /*|| iteration == 1*/ || iteration == n_iterations_)
         {
+            auto evaluation_start = std::chrono::high_resolution_clock::now();
             torch::NoGradGuard nograd;
             std::cout << "Evaluation Phase" << std::endl;
             std::chrono::duration<int, std::milli> zero_duration{ 0 };
             std::unique_ptr<rl::players::IEvaluator> ev1_ptr{ std::make_unique<rl::deeplearning::NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, observation_shape) };
-            auto p1_ptr = std::make_unique<rl::players::Amcts2Player>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
+            // auto p1_ptr = std::make_unique<rl::players::Amcts2Player>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
+            auto p1_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
             std::unique_ptr<rl::players::IEvaluator> ev2_ptr{ std::make_unique<rl::deeplearning::NetworkEvaluator>(strongest->copy(), n_game_actions_, observation_shape) };
-            auto p2_ptr = std::make_unique<rl::players::Amcts2Player>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
-            rl::common::Match m(test_state_ptr_->reset(), p1_ptr.get(), p2_ptr.get(), n_testing_episodes_, false);
-            std::tuple<float, float> tp{ m.start() };
-            float p1_score = std::get<0>(tp);
-            float ratio = float(p1_score + n_testing_episodes_) / (2 * n_testing_episodes_);
-            std::cout << "Win ratio is " << ratio << std::endl;
+            // auto p2_ptr = std::make_unique<rl::players::Amcts2Player>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
+            auto p2_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
+            // rl::common::Match m(test_state_ptr_->reset(), p1_ptr.get(), p2_ptr.get(), n_testing_episodes_, false);
+            rl::common::ConcurrentMatch m(test_state_ptr_->reset(), p1_ptr.get(), p2_ptr.get(), n_testing_episodes_, n_testing_episodes_);
+            float p1_score_average = m.start();
+            // std::tuple<float, float> tp{ m.start() };
+            // float p1_score = std::get<0>(tp);
+            // float ratio = float(p1_score + n_testing_episodes_) / (2 * n_testing_episodes_);
+            float ratio = static_cast<float>(p1_score_average + 1.0f) / (2.0f);
+            auto duration = std::chrono::high_resolution_clock::now() - evaluation_start;
+            auto duration_in_seconds = duration / std::chrono::seconds(1);
+            std::cout << "Evaluation Phase Ended : Win ratio is " << ratio << " took is " << duration_in_seconds << " s" << std::endl;
             if (ratio > 0.5)
             {
                 strongest = base_network_ptr_->deepcopy();
@@ -348,7 +357,7 @@ void AlphaZero::collect_data()
                     subtree->roll(USE_DIRICHLET_NOISE);
                 }
                 auto tree_rollouts = subtree->get_rollouts();
-                
+
                 for (auto state_ptr : tree_rollouts)
                 {
                     rollout_states.push_back(state_ptr);
