@@ -88,7 +88,7 @@ void TrainAIConsole::edit_settings()
         std::cout << "[0] Nothing\n";
         std::cout << "[1] Game\n";
         std::cout << "[2] Iterations \n";
-        std::cout << "[3] Episodes per iteraion \n";
+        std::cout << "[3] Episodes per iteration \n";
         std::cout << "[4] Simulations \n";
         std::cout << "[5] Epochs \n";
         std::cout << "[6] Batches \n";

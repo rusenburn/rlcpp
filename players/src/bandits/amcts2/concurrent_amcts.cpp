@@ -44,7 +44,13 @@ std::pair<std::vector<std::vector<float>>, std::vector<float>> ConcurrentAmcts::
     auto values_result = std::vector<float>(current_n_trees, 0.0f);
     for (int i = 0; i < states_size;i++)
     {
-        // NOTE : This is ignored for now because we need to calculate the evaluation
+        
+        /*
+        NOTE : This block is ignored for now 
+        It is supposed to mark forced action states so we do not have to simulate
+        and sets its probabilities as the actions mask  with the forced legal action probability as 1
+        but alphazero needs the evaluation therefore it is ignored for now
+        */ 
 
         // auto& state_ptr = state_ptrs.at(i);
         // auto legal_actions = state_ptr->actions_mask();

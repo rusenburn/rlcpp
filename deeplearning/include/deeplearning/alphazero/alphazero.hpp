@@ -7,6 +7,7 @@
 #include "alphazero_sub_tree.hpp"
 #include "alphazero_sub_tree2.hpp"
 #include <players/bandits/amcts2/amcts2.hpp>
+#include <players/bandits/amcts2/concurrent_amcts.hpp>
 #include <torch/torch.h>
 
 namespace rl::deeplearning::alphazero
@@ -34,7 +35,6 @@ private:
     std::vector<float> all_probabilities_{};
     std::vector<float> all_wdls_{};
     std::vector<std::unique_ptr<rl::common::IState>> states_ptrs_{};
-    std::vector<std::unique_ptr<players::Amcts2>> subtrees_{};
     std::vector<std::vector<float>> episode_obsevations_{};
     std::vector<std::vector<float>> episode_probs_{};
     std::vector<std::vector<float>> episode_wdls_{};
@@ -46,7 +46,7 @@ private:
     static torch::Tensor cross_entropy_loss_(torch::Tensor& target, torch::Tensor& prediction);
     void collect_data();
     void end_subtree(int subtree_id, int last_player, float result);
-    std::unique_ptr<players::Amcts2> AlphaZero::get_new_subtree_ptr();
+    std::unique_ptr<players::ConcurrentAmcts> AlphaZero::get_new_concurrent_tree_ptr();
 
 
 public:

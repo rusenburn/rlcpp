@@ -20,6 +20,5 @@ int main(int argc, char const* argv[])
         std::cerr << arr << "\n";
     }
 
-    // run_match(2,5000,10);
     return 0;
 }

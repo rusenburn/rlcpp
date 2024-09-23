@@ -3,7 +3,7 @@
 #include <cmath>
 #include <filesystem>
 #include <tuple>
-
+#include <deque>
 #include <common/random.hpp>
 #include <common/utils.hpp>
 #include <players/amcts_player.hpp>
@@ -82,7 +82,6 @@ AlphaZero::AlphaZero(
     for (int i = 0; i < N_TREES; i++)
     {
         states_ptrs_.push_back(initial_state_ptr_->reset());
-        subtrees_.push_back(get_new_subtree_ptr());
         episode_obsevations_.push_back({});
         episode_probs_.push_back({});
         episode_wdls_.push_back({});
@@ -172,21 +171,16 @@ void AlphaZero::train()
             std::cout << "Evaluation Phase" << std::endl;
             std::chrono::duration<int, std::milli> zero_duration{ 0 };
             std::unique_ptr<rl::players::IEvaluator> ev1_ptr{ std::make_unique<rl::deeplearning::NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, observation_shape) };
-            // auto p1_ptr = std::make_unique<rl::players::Amcts2Player>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
+
             auto p1_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
             std::unique_ptr<rl::players::IEvaluator> ev2_ptr{ std::make_unique<rl::deeplearning::NetworkEvaluator>(strongest->copy(), n_game_actions_, observation_shape) };
-            // auto p2_ptr = std::make_unique<rl::players::Amcts2Player>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
             auto p2_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
-            // rl::common::Match m(test_state_ptr_->reset(), p1_ptr.get(), p2_ptr.get(), n_testing_episodes_, false);
             rl::common::ConcurrentMatch m(test_state_ptr_->reset(), p1_ptr.get(), p2_ptr.get(), n_testing_episodes_, n_testing_episodes_);
             float p1_score_average = m.start();
-            // std::tuple<float, float> tp{ m.start() };
-            // float p1_score = std::get<0>(tp);
-            // float ratio = float(p1_score + n_testing_episodes_) / (2 * n_testing_episodes_);
             float ratio = static_cast<float>(p1_score_average + 1.0f) / (2.0f);
             auto duration = std::chrono::high_resolution_clock::now() - evaluation_start;
             auto duration_in_seconds = duration / std::chrono::seconds(1);
-            std::cout << "Evaluation Phase Ended : Win ratio is " << ratio << " took is " << duration_in_seconds << " s" << std::endl;
+            std::cout << "Evaluation Phase Ended : Win ratio is " << ratio << " took " << duration_in_seconds << " s" << std::endl;
             if (ratio > 0.5)
             {
                 strongest = base_network_ptr_->deepcopy();
@@ -224,7 +218,7 @@ void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, t
     int cols = observation_shape.at(2);
     int n_examples = observations.size() / (channels * rows * cols);
     int batch_size = n_examples / n_batches_;
-    // int batch_size = 1024;
+    const int max_batch_size = batch_size;
     // n_batches_ = n_examples / batch_size;
 
     std::vector<float> total_losses{};
@@ -246,8 +240,9 @@ void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, t
         torch::Tensor indices = torch::randperm(n_examples);
         for (int batch{ 0 }; batch < n_batches_; batch++)
         {
-            int batch_start = batch * batch_size;
-            int batch_end = batch_start + batch_size;
+            int current_batch_size = batch_size > max_batch_size ? max_batch_size : batch_size;
+            int batch_start = batch * current_batch_size;
+            int batch_end = batch_start + current_batch_size;
             torch::Tensor sample_ids = indices.index({ torch::indexing::Slice(batch_start, batch_end) });
             torch::Tensor observations_batch = observations_tensor.index({ sample_ids }).to(dev_);
             torch::Tensor target_probs_batch = probabilities_tensor.index({ sample_ids }).to(dev_);
@@ -287,7 +282,6 @@ void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, t
             total_losses.push_back(total_loss.detach().cpu().item<float>());
         }
     }
-
     float actor_sum = 0;
     float critic_sum = 0;
     float total_sum = 0;
@@ -311,99 +305,29 @@ torch::Tensor AlphaZero::cross_entropy_loss_(torch::Tensor& target, torch::Tenso
 void AlphaZero::collect_data()
 {
     int max_n_trees = states_ptrs_.size();
-    std::cout << "running " << max_n_trees << " parallel trees" << std::endl;
+    std::cout << "running " << max_n_trees << " asynchronous trees" << std::endl;
     int completed_episodes = 0;
     int trees_n_simulations = 0;
     auto ev_ptr = std::make_unique<NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, initial_state_ptr_->get_observation_shape());
 
-    // TODO a lot of pushbacks , we can reserve some places
-
-    // Collect at least this number of episodes
+    auto concurrent_tree_ptr = get_new_concurrent_tree_ptr();
     while (completed_episodes < n_episodes_)
     {
-        /*
-        Plan is to traverse multiple games/subtrees , collect states that need to evaluated
-        Send them to GPU and evaluate them all at once , then return evaluation info
-        to the subtrees , repeat the same process for a number of simulations ,
-        then step the root states and saving training examples localy, repeat the steps for each
-        sub tree until , when a game reaches a terminal state , properly set rewards for its states
-        and send add its training examples globaly , when a certain number of episodes are done exit
-        the phase
-        */
-
-
-
-
-        // the number of sub trees
-        int current_n_trees = static_cast<int>(subtrees_.size());
-
+        int current_n_trees = static_cast<int>(states_ptrs_.size());
+        std::vector<const rl::common::IState*> states_ptrs_vec(current_n_trees, nullptr);
         for (int i = 0;i < current_n_trees;i++)
         {
-            subtrees_.at(i)->set_root(states_ptrs_.at(i).get());
+            states_ptrs_vec.at(i) = states_ptrs_.at(i).get();
         }
-        for (int sim = 0;sim < n_sims_ / N_SUB_TREE_ASYNC;sim++)
-        {
-            // Used to save rollout states that needs to be evaluated
-            std::vector<const rl::common::IState*> rollout_states{};
-            // Used to save the tree id that a state in rollout states belongs
-            std::vector<int> trees_idx{};
-            for (int tree_idx = 0;tree_idx < current_n_trees;tree_idx++)
-            {
-                constexpr bool USE_DIRICHLET_NOISE{ true };
-                auto& subtree = subtrees_.at(tree_idx);
-                subtree->clear_rollout();
-                for (int async_roll = 0;async_roll < N_SUB_TREE_ASYNC;async_roll++)
-                {
-                    subtree->roll(USE_DIRICHLET_NOISE);
-                }
-                auto tree_rollouts = subtree->get_rollouts();
-
-                for (auto state_ptr : tree_rollouts)
-                {
-                    rollout_states.push_back(state_ptr);
-                    trees_idx.push_back(tree_idx);
-                }
-            }
-
-            std::vector<std::tuple<std::vector<float>, std::vector<float>>> trees_evaluations{};
-            for (int tree_idx = 0;tree_idx < current_n_trees;tree_idx++)
-            {
-                trees_evaluations.push_back(std::make_tuple<std::vector<float>, std::vector<float>>(
-                    std::vector<float>(), std::vector<float>()));
-            }
-            auto& [probs, vs] = ev_ptr->evaluate(rollout_states);
-            int n_rollouts = rollout_states.size();
-            for (int rollout_id = 0; rollout_id < n_rollouts; rollout_id++)
-            {
-                int probs_start = rollout_id * n_game_actions_;
-                int probs_end = probs_start + n_game_actions_;
-                int current_tree_id = trees_idx.at(rollout_id);
-                std::vector<float>& current_probs_ref = std::get<0>(trees_evaluations.at(current_tree_id));
-                std::vector<float>& current_vs_ref = std::get<1>(trees_evaluations.at(current_tree_id));
-                for (int cell = probs_start; cell < probs_end; cell++)
-                {
-                    current_probs_ref.push_back(probs.at(cell));
-                }
-                current_vs_ref.push_back(vs.at(rollout_id));
-            }
-
-            for (int tree_id = 0; tree_id < current_n_trees; tree_id++)
-            {
-                auto& current_sub_tree = subtrees_.at(tree_id);
-                auto& current_evaluation_tuple = trees_evaluations.at(tree_id);
-                current_sub_tree->evaluate_collected_states(current_evaluation_tuple);
-            }
-        } // end sims
+        auto& [trees_probs, trees_values] = concurrent_tree_ptr->search_multiple(states_ptrs_vec, n_sims_, std::chrono::milliseconds(0));
 
         for (int tree_id = 0;tree_id < current_n_trees;tree_id++)
         {
-            auto& subtree = subtrees_.at(tree_id);
             auto& state_ptr = states_ptrs_.at(tree_id);
             int current_player = state_ptr->player_turn();
             episode_players_.at(tree_id).push_back(current_player);
-            std::vector<float> state_probs = subtree->get_probs();
-            float ev = subtree->get_evaluation();
-
+            std::vector<float>& state_probs = trees_probs.at(tree_id);
+            float ev = trees_values.at(tree_id);
             auto current_obs = state_ptr->get_observation();
             for (float cell : current_obs)
             {
@@ -520,11 +444,14 @@ void AlphaZero::end_subtree(int i, int last_player, float result)
 
     episode_steps_.at(i) = 0;
 
-    subtrees_.at(i) = get_new_subtree_ptr();
     states_ptrs_.at(i) = initial_state_ptr_->reset();
 }
-std::unique_ptr<players::Amcts2> AlphaZero::get_new_subtree_ptr()
+
+std::unique_ptr<players::ConcurrentAmcts> AlphaZero::get_new_concurrent_tree_ptr()
 {
-    return std::make_unique<players::Amcts2>(n_game_actions_, nullptr, CPUCT, 1.0f, N_SUB_TREE_ASYNC, N_VISITS, N_WINS);
+    auto ev_ptr = std::make_unique<NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, initial_state_ptr_->get_observation_shape());
+    return std::make_unique<players::ConcurrentAmcts>(n_game_actions_, std::move(ev_ptr), CPUCT, 1.0f, N_SUB_TREE_ASYNC, N_VISITS, N_WINS);
 }
+
 } // namespace rl::DeepLearning::alphazero
+
