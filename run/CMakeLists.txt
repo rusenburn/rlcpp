@@ -8,6 +8,7 @@ set(SourceFiles
     main_console.cpp
     train_ai_console.cpp
     match_console.cpp
+    concurrent_match_console.cpp
     )
 
 set(HeaderFiles )

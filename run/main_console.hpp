@@ -4,6 +4,7 @@
 #include "console.hpp"
 #include "train_ai_console.hpp"
 #include "match_console.hpp"
+#include "concurrent_match_console.hpp"
 namespace rl::run
 {
 class MainConsole : public IConsole
