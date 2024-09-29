@@ -9,12 +9,36 @@
 #include <players/bandits/amcts2/amcts2.hpp>
 #include <players/bandits/amcts2/concurrent_amcts.hpp>
 #include <torch/torch.h>
+#include <functional>
 
 namespace rl::deeplearning::alphazero
 {
+
+struct AlphaZeroConfig;
+
 class AlphaZero
 {
 private:
+    // private constants
+    // These are being used during evaluation, and not during data collection
+    const int N_ASYNC = 8;
+    const float N_VISITS = 1.0f;
+    const float N_WINS = -1.0f;
+    const float DIRICHLET_EPSILON = 0.25f;
+    const float DIRICHLET_ALPHA = -1.0f;
+    // Number of games/subtrees that run asynchronously , each has its own tree but all share the same evaluator, used during data collection
+    const int N_TREES = 128;
+    // Number of states to be collected per sub tree before evaluation
+    const int N_SUB_TREE_ASYNC = 1;
+    // Number of  games per iteration that cannot end early and must complete to end ( until terminal ) , the rest can skip when it is losing horribly
+    const int N_COMPLETE_TO_END = N_TREES / 4;
+    // Players that reached below this score can resign IF THEY ARE NOT COMPLETE TO END PLAYERS
+    const float NO_RESIGN_THRESHOLD = -0.8f;
+    // Players are not allowed to resign if the number of steps is below this number
+    const int MINIMUM_STEPS = 30;
+    // MCTS CPUCT
+    const float CPUCT = 2.5f;
+
     std::unique_ptr<rl::common::IState> initial_state_ptr_;
     std::unique_ptr<rl::common::IState> test_state_ptr_;
     int n_iterations_;
@@ -66,7 +90,6 @@ public:
         std::string load_path = "",
         std::string save_name = "temp.pt");
     void train();
-    // void execute_episode(std::vector<float>& observations, std::vector<float>& probabilities, std::vector<float>& wdls, bool is_use_network);
     ~AlphaZero();
 };
 

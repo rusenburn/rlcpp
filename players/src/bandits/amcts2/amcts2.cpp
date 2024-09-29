@@ -9,12 +9,23 @@ namespace rl::players
 {
 constexpr float EPS = 1e-8f;
 
-Amcts2::Amcts2(int n_game_actions, std::unique_ptr<IEvaluator> evaluator_ptr, float cpuct, float temperature, int max_async_simulations, float default_visits, float default_wins)
+Amcts2::Amcts2(
+    int n_game_actions,
+    std::unique_ptr<IEvaluator> evaluator_ptr,
+    float cpuct,
+    float temperature,
+    int max_async_simulations,
+    float dirichlet_epsilon,
+    float dirichlet_alpha,
+    float default_visits,
+    float default_wins)
     : n_game_actions_{ n_game_actions },
     evaluator_ptr_{ std::move(evaluator_ptr) },
     cpuct_{ cpuct },
     temperature_{ temperature },
     max_async_simulations_{ max_async_simulations },
+    dirichlet_epsilon_{dirichlet_epsilon},
+    dirichlet_alpha_{dirichlet_alpha},
     default_n_{ default_visits },
     default_w_{ default_wins }
 {
@@ -55,9 +66,9 @@ std::vector<float> Amcts2::search(const rl::common::IState* state_ptr, int minim
 
     int simulations_count{ 0 };
 
-    while (simulations_count <= minimum_no_simulations)
+    while (simulations_count <= minimum_no_simulations || t_end > std::chrono::high_resolution_clock::now())
     {
-        roll(false);
+        roll(dirichlet_epsilon_,dirichlet_alpha_);
         simulations_count++;
         if (simulations_count % max_async_simulations_ == 0)
         {
@@ -69,19 +80,6 @@ std::vector<float> Amcts2::search(const rl::common::IState* state_ptr, int minim
             clear_rollout();
         }
 
-    }
-
-    while (t_end > std::chrono::high_resolution_clock::now())
-    {
-        roll(false);
-        simulations_count++;
-        if (simulations_count % max_async_simulations_ == 0)
-        {
-            auto rollouts = get_rollouts();
-            auto evaluations = evaluator_ptr_->evaluate(rollouts);
-            evaluate_collected_states(evaluations);
-            clear_rollout();
-        }
     }
 
     auto rollouts = get_rollouts();
@@ -97,12 +95,12 @@ void players::Amcts2::set_root(const rl::common::IState* state_ptr)
     rollouts_.clear();
     assert(state_ptr->is_terminal() == false);
     root_node_ = std::make_unique<Amcts2Node>(state_ptr->clone(), state_ptr->get_n_actions(), cpuct_);
-    }
-void players::Amcts2::roll(bool use_dirichlet_noise)
+}
+void players::Amcts2::roll(float dirichlet_epsilon, float dirichlet_alpha)
 {
     rollouts_.push_back(std::make_pair<rl::common::IState*, std::vector<Amcts2Info>>(nullptr, {}));
     auto& rollout_info = rollouts_.back();
-    root_node_->simulate_once(rollout_info, use_dirichlet_noise, default_n_, default_w_,root_node_.get());
+    root_node_->simulate_once(rollout_info, dirichlet_epsilon,dirichlet_alpha, default_n_, default_w_, root_node_.get());
     if (rollout_info.first == nullptr)
     {
         rollouts_.pop_back();

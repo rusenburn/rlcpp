@@ -89,7 +89,6 @@ void ConcurrentMatchConsole::print_current_settings()
         break;
     }
 
-    std::cout << '\n';
     std::cout << "[Number of sets] " << n_sets_ << std::endl;
 
 }
@@ -439,7 +438,7 @@ std::unique_ptr<rl::players::IEvaluator>  ConcurrentMatchConsole::get_network_ev
 IConcurrentPlayerPtr ConcurrentMatchConsole::get_concurrent_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration)
 {
     auto state_ptr = get_state_ptr();
-    return std::make_unique<rl::players::ConcurrentPlayer>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f, 8);
+    return std::make_unique<rl::players::ConcurrentPlayer>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 0.5f, 2.0f, 8, 0.0f, -1.0f);
 }
 } // namespace rl::run
 

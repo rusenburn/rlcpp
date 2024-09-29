@@ -16,29 +16,9 @@
 #include <common/concurrent_match.hpp>
 #include <deeplearning/alphazero/alphazero.hpp>
 
-
 namespace rl::deeplearning::alphazero
 {
-// These are being used during evaluation, and not during data collection
-constexpr int N_ASYNC = 8;
-constexpr float N_VISITS = 1.0f;
-constexpr float N_WINS = -1.0f;
-
-
 constexpr float EPS = 1e-4f;
-
-// Number of workers/games that run asynchronously , each has its own tree, used during data collection
-constexpr int N_TREES = 64;
-// Number of states to be collected per sub tree before evaluation
-constexpr int N_SUB_TREE_ASYNC = 1;
-// Number of  workers/games that cannot end early and must complete to end ( until terminal ) , the rest can skip when it is losing horribly
-constexpr int N_COMPLETE_TO_END = N_TREES / 4;
-// Players that reached below this score can resign IF THEY ARE NOT COMPLETE TO END PLAYERS
-constexpr float NO_RESIGN_THRESHOLD = -0.8f;
-// Players are not allowed to resign if the number of steps is below this number
-constexpr int MINIMUM_STEPS = 30;
-// MCTS CPUCT
-constexpr float CPUCT = 2.5f;
 AlphaZero::AlphaZero(
     std::unique_ptr<rl::common::IState> initial_state_ptr,
     std::unique_ptr<rl::common::IState> test_state_ptr,
@@ -172,9 +152,9 @@ void AlphaZero::train()
             std::chrono::duration<int, std::milli> zero_duration{ 0 };
             std::unique_ptr<rl::players::IEvaluator> ev1_ptr{ std::make_unique<rl::deeplearning::NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, observation_shape) };
 
-            auto p1_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
+            auto p1_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC,DIRICHLET_EPSILON,DIRICHLET_ALPHA, N_VISITS, N_WINS);
             std::unique_ptr<rl::players::IEvaluator> ev2_ptr{ std::make_unique<rl::deeplearning::NetworkEvaluator>(strongest->copy(), n_game_actions_, observation_shape) };
-            auto p2_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, N_VISITS, N_WINS);
+            auto p2_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC,DIRICHLET_EPSILON,DIRICHLET_ALPHA ,N_VISITS, N_WINS);
             rl::common::ConcurrentMatch m(test_state_ptr_->reset(), p1_ptr.get(), p2_ptr.get(), n_testing_episodes_, n_testing_episodes_);
             float p1_score_average = m.start();
             float ratio = static_cast<float>(p1_score_average + 1.0f) / (2.0f);
@@ -381,6 +361,7 @@ void AlphaZero::collect_data()
             else
             {
                 int episode_length = episode_steps_.at(tree_id);
+                // TODO : check if after 30 steps the agent should have temperature of 0 or decrease gradually
                 float temperature = episode_length > 30 ? powf(0.5, (episode_length - 30) / 30) : 1.0f;
                 std::vector<float> probs_with_temp = rl::common::utils::apply_temperature(state_probs, temperature);
                 int action = choose_action(probs_with_temp);
@@ -450,7 +431,7 @@ void AlphaZero::end_subtree(int i, int last_player, float result)
 std::unique_ptr<players::ConcurrentAmcts> AlphaZero::get_new_concurrent_tree_ptr()
 {
     auto ev_ptr = std::make_unique<NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, initial_state_ptr_->get_observation_shape());
-    return std::make_unique<players::ConcurrentAmcts>(n_game_actions_, std::move(ev_ptr), CPUCT, 1.0f, N_SUB_TREE_ASYNC, N_VISITS, N_WINS);
+    return std::make_unique<players::ConcurrentAmcts>(n_game_actions_, std::move(ev_ptr), CPUCT, 1.0f, N_SUB_TREE_ASYNC,DIRICHLET_EPSILON,DIRICHLET_ALPHA, N_VISITS, N_WINS);
 }
 
 } // namespace rl::DeepLearning::alphazero

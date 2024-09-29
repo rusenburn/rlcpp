@@ -4,12 +4,14 @@
 
 namespace rl::players
 {
-ConcurrentAmcts::ConcurrentAmcts(int n_game_actions, std::unique_ptr<IEvaluator> evaluator_ptr, float cpuct, float temperature, int max_async_simulations_per_tree, float default_visits, float default_wins)
+ConcurrentAmcts::ConcurrentAmcts(int n_game_actions, std::unique_ptr<IEvaluator> evaluator_ptr, float cpuct, float temperature, int max_async_simulations_per_tree,float dirichlet_epsilon,float dirichlet_alpha,float default_visits, float default_wins)
     :n_game_actions_{ n_game_actions },
     evaluator_ptr_{ std::move(evaluator_ptr) },
     cpuct_{ cpuct },
     temperature_{ temperature },
     max_async_simulations_{ max_async_simulations_per_tree },
+    dirichlet_epsilon_{dirichlet_epsilon},
+    dirichlet_alpha_{dirichlet_alpha},
     default_n_{ default_visits },
     default_w_{ default_wins }
 {
@@ -93,7 +95,6 @@ std::pair<std::vector<std::vector<float>>, std::vector<float>> ConcurrentAmcts::
         std::vector<int> trees_idx{};
         for (int tree_id = 0;tree_id < current_n_trees;tree_id++)
         {
-            constexpr int USE_DIRICHLET_NOISE{ true };
             if (vec_is_state_forced.at(tree_id))continue;
             auto& current_root_node = root_nodes.at(tree_id);
             auto& current_tree_rollouts = all_rollouts.at(tree_id);
@@ -103,7 +104,7 @@ std::pair<std::vector<std::vector<float>>, std::vector<float>> ConcurrentAmcts::
                 // roll root node using dirichlet noise
                 current_tree_rollouts.push_back(std::make_pair<rl::common::IState*, std::vector<Amcts2Info>>(nullptr, {}));
                 auto& rollout_info = current_tree_rollouts.back();
-                current_root_node->simulate_once(rollout_info, USE_DIRICHLET_NOISE, default_n_, default_w_, current_root_node.get());
+                current_root_node->simulate_once(rollout_info, dirichlet_epsilon_, dirichlet_alpha_,default_n_, default_w_, current_root_node.get());
 
                 // remove this rollout if no state is to be evaluated , Happens when the edge state is terminal 
                 if (rollout_info.first == nullptr)

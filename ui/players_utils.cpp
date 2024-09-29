@@ -11,7 +11,8 @@ namespace rl::ui
 
 PlayerInfoFull::PlayerInfoFull(std::unique_ptr<rl::common::IPlayer> player_ptr, std::string name)
     : player_ptr_(std::move(player_ptr)), name_(name)
-{}
+{
+}
 
 PlayerInfoFull::~PlayerInfoFull() = default;
 
@@ -61,7 +62,7 @@ std::unique_ptr<PlayerInfoFull> get_network_amcts2_player(rl::common::IState* st
     network_ptr->to(device);
     auto ev_ptr = std::make_unique<rl::deeplearning::NetworkEvaluator>(std::move(network_ptr), state_ptr->get_n_actions(), state_ptr->get_observation_shape());
     ev_ptr->evaluate(state_ptr);
-    auto player_ptr = std::make_unique<rl::players::Amcts2Player>(state_ptr->get_n_actions(), std::move(ev_ptr), n_sims, minimum_duration, 0.5f, 1.25f, 8);
+    auto player_ptr = std::make_unique<rl::players::Amcts2Player>(state_ptr->get_n_actions(), std::move(ev_ptr), n_sims, minimum_duration, 0.5f, 1.25f, 8, 0.0f, -1.0f);
     ss << "AMCTS2 NN " << load_name;
     std::cout << "Loading " << load_name << std::endl;
     return std::make_unique<PlayerInfoFull>(std::move(player_ptr), ss.str());
@@ -81,7 +82,7 @@ std::unique_ptr<PlayerInfoFull> get_long_network_amcts2_player(rl::common::IStat
     network_ptr->to(device);
     auto ev_ptr = std::make_unique<rl::deeplearning::NetworkEvaluator>(std::move(network_ptr), state_ptr->get_n_actions(), state_ptr->get_observation_shape());
     ev_ptr->evaluate(state_ptr);
-    auto player_ptr = std::make_unique<rl::players::Amcts2Player>(state_ptr->get_n_actions(), std::move(ev_ptr), n_sims, minimum_duration, 0.5f, 1.25f, 8);
+    auto player_ptr = std::make_unique<rl::players::Amcts2Player>(state_ptr->get_n_actions(), std::move(ev_ptr), n_sims, minimum_duration, 0.5f, 1.25f, 8, 0.0f, -1.0f);
     ss << "AMCTS2 NN " << load_name;
     std::cout << "Loading " << load_name << std::endl;
     return std::make_unique<PlayerInfoFull>(std::move(player_ptr), ss.str());

@@ -24,6 +24,8 @@ private:
     float temperature_;
     float cpuct_;
     int max_async_simulations_;
+    float dirichlet_epsilon_;
+    float dirichlet_alpha_;
     float default_visits_;
     float default_wins_;
 
@@ -34,7 +36,9 @@ public:
         std::chrono::duration<int, std::milli> duration_in_millis,
         float temperature,
         float cpuct_,
-        int max_async_simulations = 4,
+        int max_async_simulations,
+        float dirichlet_epsilon,
+        float dirichlet_alpha,
         float default_visits = 1.0f,
         float default_wins = -1.0f);
     ~Amcts2Player()override;
@@ -51,6 +55,8 @@ private:
     float temperature_;
     float cpuct_;
     int max_async_simulations_;
+    float dirichlet_epsilon_;
+    float dirichlet_alpha_;
     float default_visits_;
     float default_wins_;
 public:
@@ -61,7 +67,9 @@ public:
         std::chrono::duration<int, std::milli> duration_in_millis,
         float temperature,
         float cpuct,
-        int max_async_simulations = 8,
+        int max_async_simulations,
+        float dirichlet_epsilon,
+        float dirichlet_alpha,
         float default_visits = 1.0f,
         float default_wins = -1.0f
     );

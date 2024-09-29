@@ -13,6 +13,8 @@ Amcts2Player::Amcts2Player(
     float temperature,
     float cpuct,
     int max_async_simulations,
+    float dirichlet_epsilon,
+    float dirichlet_alpha,
     float default_visits,
     float default_wins)
 
@@ -23,6 +25,8 @@ Amcts2Player::Amcts2Player(
     temperature_{ temperature },
     cpuct_{ cpuct },
     max_async_simulations_{ max_async_simulations },
+    dirichlet_epsilon_{dirichlet_epsilon},
+    dirichlet_alpha_{dirichlet_alpha},
     default_visits_{ default_visits },
     default_wins_{ default_wins }
 {
@@ -33,7 +37,7 @@ Amcts2Player::~Amcts2Player() = default;
 
 int Amcts2Player::choose_action(const std::unique_ptr<rl::common::IState>& state_ptr)
 {
-    auto mcts = Amcts2(n_game_actions_, evaluator_ptr_->copy(), cpuct_, temperature_, max_async_simulations_, default_visits_, default_wins_);
+    auto mcts = Amcts2(n_game_actions_, evaluator_ptr_->copy(), cpuct_, temperature_, max_async_simulations_,dirichlet_epsilon_,dirichlet_alpha_, default_visits_, default_wins_);
     std::vector<float> probs = mcts.search(state_ptr.get(), minimum_simulations_, duration_in_millis_);
 
     float p = rl::common::get();
@@ -66,6 +70,8 @@ ConcurrentPlayer::ConcurrentPlayer(
     float temperature,
     float cpuct,
     int max_async_simulations ,
+    float dirichlet_epsilon,
+    float dirichlet_alpha,
     float default_visits ,
     float default_wins 
 )
@@ -76,6 +82,8 @@ ConcurrentPlayer::ConcurrentPlayer(
     temperature_{ temperature },
     cpuct_{ cpuct },
     max_async_simulations_{ max_async_simulations },
+    dirichlet_epsilon_{dirichlet_epsilon},
+    dirichlet_alpha_{dirichlet_alpha_},
     default_visits_{ default_visits },
     default_wins_{ default_wins }
 {
@@ -86,7 +94,7 @@ ConcurrentPlayer::~ConcurrentPlayer() = default;
 
 std::vector<int> ConcurrentPlayer::choose_actions(const std::vector<const rl::common::IState*>& states_ptrs_ref)
 {
-    auto amcts = ConcurrentAmcts(n_game_actions_, evaluator_ptr_->copy(), cpuct_, temperature_, max_async_simulations_, default_visits_, default_wins_);
+    auto amcts = ConcurrentAmcts(n_game_actions_, evaluator_ptr_->copy(), cpuct_, temperature_, max_async_simulations_, dirichlet_epsilon_,dirichlet_alpha_,default_visits_, default_wins_);
     auto& [all_probs, all_values] = amcts.search_multiple(states_ptrs_ref, minimum_simulations_, duration_in_millis_);
     const int n_states = states_ptrs_ref.size();
     std::vector<int> actions{};

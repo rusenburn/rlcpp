@@ -15,7 +15,7 @@ Amcts2Node::Amcts2Node(std::unique_ptr<rl::common::IState> state_ptr, int n_game
 
 
 Amcts2Node::~Amcts2Node() = default;
-void Amcts2Node::simulate_once(std::pair<rl::common::IState*, std::vector<Amcts2Info>> &rollout_info_ref, bool use_dirichlet_noise, float default_n, float default_w,Amcts2Node* const root_node_ptr)
+void Amcts2Node::simulate_once(std::pair<rl::common::IState*, std::vector<Amcts2Info>>& rollout_info_ref, float dirichlet_epsilon,float dirichlet_alpha, float default_n, float default_w, Amcts2Node* const root_node_ptr)
 {
     if (state_ptr_->is_terminal())
     {
@@ -37,7 +37,7 @@ void Amcts2Node::simulate_once(std::pair<rl::common::IState*, std::vector<Amcts2
 
     // continue down the tree
 
-    int best_action = find_best_action(use_dirichlet_noise);
+    int best_action = find_best_action(dirichlet_epsilon,dirichlet_alpha);
 
     if (children_.at(best_action) == nullptr)
     {
@@ -59,7 +59,7 @@ void Amcts2Node::simulate_once(std::pair<rl::common::IState*, std::vector<Amcts2
     actions_visits_.at(best_action) += default_n;
     delta_actions_wins.at(best_action) += default_w;
 
-    next_node_ptr->simulate_once(rollout_info_ref, false, default_n, default_w,root_node_ptr);
+    next_node_ptr->simulate_once(rollout_info_ref, 0.0f, dirichlet_alpha,default_n, default_w, root_node_ptr);
 }
 
 void players::Amcts2Node::backpropogate(std::vector<Amcts2Info>& visited_path, int depth, float final_result, int final_player, std::vector<float>& probs, float default_n, float default_w)
@@ -235,7 +235,7 @@ float players::Amcts2Node::get_evaluation()
     return delta_wins / n_visits_;
 }
 
-int players::Amcts2Node::find_best_action(bool use_dirichlet_noise)
+int players::Amcts2Node::find_best_action(float dirichlet_epsilon,float dirichlet_alpha)
 {
     float max_u = -INFINITY;
     int best_action = -1;
@@ -245,9 +245,10 @@ int players::Amcts2Node::find_best_action(bool use_dirichlet_noise)
     auto& dirichlet_noise = dirichlet_noise_;
     const auto& masks = actions_mask_;
     float current_state_visis = n_visits_;
+    const bool use_dirichlet_noise = dirichlet_epsilon > 0.0f;
     if (use_dirichlet_noise && dirichlet_noise.size() != psa_vec.size())
     {
-        dirichlet_noise = rl::common::utils::get_dirichlet_noise(masks, -1.0, rl::common::mt);
+        dirichlet_noise = rl::common::utils::get_dirichlet_noise(masks, dirichlet_alpha, rl::common::mt);
     }
 
     for (int action{ 0 }; action < masks.size(); action++)
@@ -260,8 +261,8 @@ int players::Amcts2Node::find_best_action(bool use_dirichlet_noise)
         float action_prob = psa_vec.at(action);
         if (use_dirichlet_noise)
         {
-            constexpr float dirichlet_weighting_average = 0.25;
-            action_prob = (1 - dirichlet_weighting_average) * action_prob + dirichlet_noise.at(action) * dirichlet_weighting_average;
+            // constexpr float dirichlet_epsilon = 0.25f;
+            action_prob = (1 - dirichlet_epsilon) * action_prob + dirichlet_noise.at(action) * dirichlet_epsilon;
         }
         float action_visits = nsa_vec.at(action);
         float qsa = 0.0f;

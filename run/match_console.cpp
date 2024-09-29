@@ -60,7 +60,6 @@ void MatchConsole::edit_settings()
         std::cout << "[3] Player 1\n";
         std::cout << "[4] Number of sets\n";
         std::cout << "[5] Render \n";
-        std::cout << "[6] Concurrent Matches \n";
 
         std::cin >> choice;
         switch (choice)
@@ -469,12 +468,12 @@ IPlayerPtr MatchConsole::get_human_player()
 IPlayerPtr MatchConsole::get_amcts2_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration)
 {
     auto state_ptr = get_state_ptr();
-    return std::make_unique<rl::players::Amcts2Player>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f, 8);
+    return std::make_unique<rl::players::Amcts2Player>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f, 8, 0.0f, -1.0f);
 }
 IPlayerPtr MatchConsole::get_concurrent_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration)
 {
     auto state_ptr = get_state_ptr();
-    return std::make_unique<rl::players::ConcurrentPlayer>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f, 8);
+    return std::make_unique<rl::players::ConcurrentPlayer>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f, 8,0.0f,-1.0f);
 }
 int MatchConsole::pick_player_type()
 {

@@ -18,7 +18,7 @@ class Amcts2Node
 public:
     Amcts2Node(std::unique_ptr<rl::common::IState> state_ptr,int n_game_actions,float cpuct);
     ~Amcts2Node();
-    void simulate_once(std::pair<rl::common::IState* ,std::vector<Amcts2Info>>& rollout_info_ref,bool use_dirichlet_noise,float default_n,float default_w,Amcts2Node* const root_node_ptr);
+    void simulate_once(std::pair<rl::common::IState* ,std::vector<Amcts2Info>>& rollout_info_ref,float dirichlet_epsilon,float dirichlet_alpha,float default_n,float default_w,Amcts2Node* const root_node_ptr);
     void backpropogate(std::vector<Amcts2Info>& visited_path,int depth, float final_result, int final_player, std::vector<float>& probs,float default_n,float default_w);
     void expand_node();
     std::vector<float> get_probs(float temperature);
@@ -35,7 +35,7 @@ private:
     float delta_wins{ 0 };
     std::vector<float> actions_visits_{ 0 };
     std::vector<float> delta_actions_wins{ 0 };
-    int find_best_action(bool use_dirichlet_noise);
+    int find_best_action(float dirichlet_epsilon , float dirichlet_alpha);
 
 };
 
