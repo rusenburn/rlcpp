@@ -2,19 +2,15 @@
 #define RL_DEEPLEARNING_ALPHAZERO_HPP_
 
 #include <memory>
-#include "networks/az.hpp"
-#include <common/state.hpp>
-#include "alphazero_sub_tree.hpp"
-#include "alphazero_sub_tree2.hpp"
-#include <players/bandits/amcts2/amcts2.hpp>
-#include <players/bandits/amcts2/concurrent_amcts.hpp>
 #include <torch/torch.h>
 #include <functional>
-
+#include "networks/az.hpp"
+#include <common/state.hpp>
+#include <players/bandits/amcts2/amcts2.hpp>
+#include <players/bandits/amcts2/concurrent_amcts.hpp>
+#include "alphazero_config.hpp"
 namespace rl::deeplearning::alphazero
 {
-
-struct AlphaZeroConfig;
 
 class AlphaZero
 {
@@ -71,6 +67,7 @@ private:
     void collect_data();
     void end_subtree(int subtree_id, int last_player, float result);
     std::unique_ptr<players::ConcurrentAmcts> AlphaZero::get_new_concurrent_tree_ptr();
+    void initialize_subtrees();
 
 
 public:
@@ -89,6 +86,13 @@ public:
         std::unique_ptr<IAlphazeroNetwork> tiny_ptr,
         std::string load_path = "",
         std::string save_name = "temp.pt");
+    AlphaZero(
+        std::function<std::unique_ptr<rl::common::IState>()> initial_state_ptr_fn,
+        std::function<std::unique_ptr<rl::common::IState>()> test_state_ptr_fn,
+        std::unique_ptr<IAlphazeroNetwork> network_ptr,
+        std::unique_ptr<IAlphazeroNetwork> tiny_ptr,
+        AZConfig config
+        );
     void train();
     ~AlphaZero();
 };

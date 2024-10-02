@@ -13,8 +13,6 @@ set(SourceFiles
     src/alphazero/networks/smallnn.cpp
     src/alphazero/networks/squeeze_and_excite.cpp
     src/alphazero/networks/tinynn.cpp
-    src/alphazero/alphazero_sub_tree.cpp
-    src/alphazero/alphazero_sub_tree2.cpp
     src/alphazero/alphazero.cpp
     src/network_evaluator.cpp
     )

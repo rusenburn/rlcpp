@@ -59,15 +59,39 @@ AlphaZero::AlphaZero(
     {
         base_network_ptr_->load(load_path);
     }
-    for (int i = 0; i < N_TREES; i++)
+    initialize_subtrees();
+}
+
+AlphaZero::AlphaZero(
+    std::function<std::unique_ptr<rl::common::IState>()> initial_state_ptr_fn,
+    std::function<std::unique_ptr<rl::common::IState>()> test_state_ptr_fn,
+    std::unique_ptr<IAlphazeroNetwork> network_ptr,
+    std::unique_ptr<IAlphazeroNetwork> tiny_ptr,
+    AZConfig config)
+    : initial_state_ptr_{ initial_state_ptr_fn() },
+    test_state_ptr_{ test_state_ptr_fn() },
+    n_iterations_{ config.n_iterations },
+    n_episodes_{ config.n_episodes },
+    n_sims_{ config.n_sims },
+    lr_{ config.lr },
+    critic_ceof_{ config.critic_coef },
+    n_epoches_{ config.n_epochs },
+    n_batches_{ config.n_batches },
+    n_testing_episodes_{ config.n_testing_episodes },
+    n_game_actions_{ test_state_ptr_fn()->get_n_actions() },
+    base_network_ptr_{ std::move(network_ptr) },
+    tiny_network_ptr_{ std::move(tiny_ptr) },
+    dev_{ torch::cuda::is_available() ? torch::kCUDA : torch::kCPU },
+    load_path_{ config.network_load_path.value_or("") },
+    save_name_{ config.network_save_name.value_or("temp.pt") }
+{
+    base_network_ptr_->to(dev_);
+    tiny_network_ptr_->to(dev_);
+    if (load_path_.size())
     {
-        states_ptrs_.push_back(initial_state_ptr_->reset());
-        episode_obsevations_.push_back({});
-        episode_probs_.push_back({});
-        episode_wdls_.push_back({});
-        episode_players_.push_back({});
-        episode_steps_.push_back(0);
+        base_network_ptr_->load(load_path_);
     }
+    initialize_subtrees();
 }
 
 AlphaZero::~AlphaZero() = default;
@@ -110,7 +134,6 @@ void AlphaZero::train()
     int rows = observation_shape.at(1);
     int cols = observation_shape.at(2);
     int observation_size = channels * rows * cols;
-
     int iteration{ 0 };
     while (iteration < n_iterations_)
     {
@@ -152,9 +175,9 @@ void AlphaZero::train()
             std::chrono::duration<int, std::milli> zero_duration{ 0 };
             std::unique_ptr<rl::players::IEvaluator> ev1_ptr{ std::make_unique<rl::deeplearning::NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, observation_shape) };
 
-            auto p1_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC,DIRICHLET_EPSILON,DIRICHLET_ALPHA, N_VISITS, N_WINS);
+            auto p1_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev1_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, DIRICHLET_EPSILON, DIRICHLET_ALPHA, N_VISITS, N_WINS);
             std::unique_ptr<rl::players::IEvaluator> ev2_ptr{ std::make_unique<rl::deeplearning::NetworkEvaluator>(strongest->copy(), n_game_actions_, observation_shape) };
-            auto p2_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC,DIRICHLET_EPSILON,DIRICHLET_ALPHA ,N_VISITS, N_WINS);
+            auto p2_ptr = std::make_unique<rl::players::ConcurrentPlayer>(n_game_actions_, std::move(ev2_ptr), n_sims_, zero_duration, 0.5, CPUCT, N_ASYNC, DIRICHLET_EPSILON, DIRICHLET_ALPHA, N_VISITS, N_WINS);
             rl::common::ConcurrentMatch m(test_state_ptr_->reset(), p1_ptr.get(), p2_ptr.get(), n_testing_episodes_, n_testing_episodes_);
             float p1_score_average = m.start();
             float ratio = static_cast<float>(p1_score_average + 1.0f) / (2.0f);
@@ -431,8 +454,20 @@ void AlphaZero::end_subtree(int i, int last_player, float result)
 std::unique_ptr<players::ConcurrentAmcts> AlphaZero::get_new_concurrent_tree_ptr()
 {
     auto ev_ptr = std::make_unique<NetworkEvaluator>(base_network_ptr_->copy(), n_game_actions_, initial_state_ptr_->get_observation_shape());
-    return std::make_unique<players::ConcurrentAmcts>(n_game_actions_, std::move(ev_ptr), CPUCT, 1.0f, N_SUB_TREE_ASYNC,DIRICHLET_EPSILON,DIRICHLET_ALPHA, N_VISITS, N_WINS);
+    return std::make_unique<players::ConcurrentAmcts>(n_game_actions_, std::move(ev_ptr), CPUCT, 1.0f, N_SUB_TREE_ASYNC, DIRICHLET_EPSILON, DIRICHLET_ALPHA, N_VISITS, N_WINS);
 }
 
+void AlphaZero::initialize_subtrees()
+{
+    for (int i = 0; i < N_TREES; i++)
+    {
+        states_ptrs_.push_back(initial_state_ptr_->reset());
+        episode_obsevations_.push_back({});
+        episode_probs_.push_back({});
+        episode_wdls_.push_back({});
+        episode_players_.push_back({});
+        episode_steps_.push_back(0);
+    }
+}
 } // namespace rl::DeepLearning::alphazero
 
