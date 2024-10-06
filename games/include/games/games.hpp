@@ -1,0 +1,6 @@
+#include "damma.hpp"
+#include "othello.hpp"
+#include "tictactoe.hpp"
+#include "walls.hpp"
+#include "santorini.hpp"
+#include "english_draughts.hpp"

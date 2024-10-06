@@ -14,6 +14,7 @@ set(SourceFiles
     src/alphazero/networks/squeeze_and_excite.cpp
     src/alphazero/networks/tinynn.cpp
     src/alphazero/alphazero.cpp
+    src/deeplearning.cpp
     src/network_evaluator.cpp
     )
 set(HeaderFiles )

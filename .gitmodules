@@ -1,3 +1,7 @@
 [submodule "external/raylib5.0"]
 	path = external/raylib5.0
 	url = https://github.com/raysan5/raylib
+[submodule "external/abseil-cpp"]
+	path = external/abseil-cpp
+	url = https://github.com/abseil/abseil-cpp
+	branch = lts_2024_07_22

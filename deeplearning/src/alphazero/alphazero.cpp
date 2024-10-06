@@ -83,7 +83,19 @@ AlphaZero::AlphaZero(
     tiny_network_ptr_{ std::move(tiny_ptr) },
     dev_{ torch::cuda::is_available() ? torch::kCUDA : torch::kCPU },
     load_path_{ config.network_load_path.value_or("") },
-    save_name_{ config.network_save_name.value_or("temp.pt") }
+    save_name_{ config.network_save_name.value_or("temp.pt") },
+
+    N_ASYNC{config.eval_async_steps},
+    N_VISITS{config.n_visits},
+    N_WINS{config.n_wins},
+    DIRICHLET_EPSILON{config.dirichlet_epsilon},
+    DIRICHLET_ALPHA{config.dirichlet_alpha},
+    N_TREES {config.n_subtrees},
+    N_SUB_TREE_ASYNC{config.n_subtree_async_steps},
+    N_COMPLETE_TO_END{ static_cast<int>(config.n_subtrees * config.complete_to_end_ratio)},
+    NO_RESIGN_THRESHOLD{config.no_resign_threshold},
+    MINIMUM_STEPS{config.no_resign_steps},
+    CPUCT{config.cpuct}
 {
     base_network_ptr_->to(dev_);
     tiny_network_ptr_->to(dev_);
