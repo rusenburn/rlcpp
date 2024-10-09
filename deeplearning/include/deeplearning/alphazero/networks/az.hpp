@@ -3,10 +3,13 @@
 
 #include <torch/torch.h>
 #include <utility>
+#include <string_view>
+#include "network_type.hpp"
 namespace rl::deeplearning::alphazero
 {
 class IAlphazeroNetwork
 {
+
 public:
     virtual ~IAlphazeroNetwork();
     virtual torch::autograd::variable_list parameters() = 0;
@@ -17,6 +20,7 @@ public:
     virtual std::unique_ptr<IAlphazeroNetwork> copy() = 0;
     virtual void save(std::string file_path) = 0;
     virtual void load(std::string file_path) = 0;
+    virtual void save_full(const std::string& file_path) = 0;
 };
 
 template <typename SELF, typename T>
@@ -25,6 +29,9 @@ class AlphazeroNetwork : public IAlphazeroNetwork
 protected:
     T mod_{ nullptr };
     torch::DeviceType dev_;
+    NetworkType network_type_;
+
+
 
     virtual ~AlphazeroNetwork() override {};
     void deepcopyto(std::unique_ptr<SELF>& other_network)
@@ -48,8 +55,9 @@ protected:
 
 public:
     AlphazeroNetwork(T mod,
-        torch::DeviceType dev)
-        : mod_{ mod }, dev_{ dev }
+        torch::DeviceType dev,
+        NetworkType network_type)
+        : mod_{ mod }, dev_{ dev }, network_type_{ network_type }
     {
     }
     std::pair<torch::Tensor, torch::Tensor> forward(torch::Tensor state) override
@@ -82,6 +90,9 @@ public:
         mod_->to(dev_);
     }
 };
-}
+
+const std::string NETWORK_TYPE_KEY = "NetworkType";
+const std::string MODULE_KEY = "Module";
+} // end namespace
 
 #endif

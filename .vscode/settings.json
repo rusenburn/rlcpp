@@ -90,7 +90,13 @@
         "__nullptr": "cpp",
         "regex": "cpp",
         "__hash_table": "cpp",
-        "__split_buffer": "cpp"
+        "__split_buffer": "cpp",
+        "any": "cpp",
+        "cfenv": "cpp",
+        "csignal": "cpp",
+        "future": "cpp",
+        "scoped_allocator": "cpp",
+        "span": "cpp"
     },
     "cmake.defaultVariants": {
         "buildType": {

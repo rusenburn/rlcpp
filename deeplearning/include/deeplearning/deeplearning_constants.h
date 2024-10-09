@@ -24,4 +24,7 @@
 #define AZ_NO_RESIGN_THRESHOLD -0.8f
 #define AZ_NO_RESIGN_STEPS 30
 
+
+
+#define NETWORK_TYPE_KEY "NetworkType"
 #endif

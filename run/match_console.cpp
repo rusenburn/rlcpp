@@ -389,8 +389,17 @@ INetworkPtr MatchConsole::get_network_ptr(int filters, int fc_dims, int blocks, 
     auto device = torch::cuda::is_available() ? torch::kCUDA : torch::kCPU;
     const std::string folder_name = "../checkpoints";
     std::filesystem::path folder(folder_name);
+    // if(std::filesystem::exists(folder) && std::filesystem::is_directory(folder))
+    // {
+    //     for(const auto & entry : std::filesystem::directory_iterator(folder))
+    //     {
+    //         std::cout << entry.path() << std::endl;
+    //     }
+    // }
     std::filesystem::path file_path;
     file_path = folder / load_name;
+    std::cout << "Network file path is" << file_path.string() << std::endl;
+    
     network_ptr->load(file_path.string());
     network_ptr->to(device);
     int n_examples = 1;
@@ -405,7 +414,7 @@ INetworkPtr MatchConsole::get_network_ptr(int filters, int fc_dims, int blocks, 
 INetworkPtr MatchConsole::get_tiny_network_ptr(std::string load_name)
 {
     auto state_pr = get_state_ptr();
-    auto network_ptr = std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_pr->get_observation_shape(), state_pr->get_n_actions());
+    auto network_ptr = std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_pr->get_observation_shape(), state_pr->get_n_actions(),true);
     auto device = torch::kCPU;
     const std::string folder_name = "../checkpoints";
     std::filesystem::path folder(folder_name);

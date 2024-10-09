@@ -261,7 +261,7 @@ IAlphazeroNetworkPtr TrainAIConsole::get_network_ptr()
 IAlphazeroNetworkPtr TrainAIConsole::get_tiny_network_ptr()
 {
     auto state_ptr = get_state_ptr();
-    return std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_ptr->get_observation_shape(), state_ptr->get_n_actions());
+    return std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_ptr->get_observation_shape(), state_ptr->get_n_actions(),true);
 }
 
 

@@ -15,6 +15,7 @@ set(SourceFiles
     src/alphazero/networks/tinynn.cpp
     src/alphazero/alphazero.cpp
     src/deeplearning.cpp
+    src/network_loader.cpp
     src/network_evaluator.cpp
     )
 set(HeaderFiles )
