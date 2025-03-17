@@ -4,6 +4,7 @@
 #include "damma/damma_ui.hpp"
 #include "santorini/santorini_ui.hpp"
 #include "santorini/santorini_tournament_ui.hpp"
+#include "main/main_ui.hpp"
 #include <string>
 
 int main(int argc, char const* argv[])
@@ -21,10 +22,11 @@ int main(int argc, char const* argv[])
     constexpr int WINDOW_H = 720;
     constexpr int FPS = 12;
 
-    rl::ui::SantoriniTournamentUI ui{ WINDOW_W, WINDOW_H };
+    // rl::ui::SantoriniTournamentUI ui{ WINDOW_W, WINDOW_H };
+    rl::ui::MainUI ui{ WINDOW_W, WINDOW_H };
 
     InitWindow(WINDOW_W, WINDOW_H, "Reinforcement Learning");
-    ui.init();
+    // ui.init();
     SetTargetFPS(FPS);
 
     while (WindowShouldClose() == false)

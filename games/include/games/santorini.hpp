@@ -52,6 +52,7 @@ public:
     std::unique_ptr<rl::common::IState> clone() const override;
     void get_symmetrical_obs_and_actions(std::vector<float> const& obs, std::vector<float> const& actions_distribution, std::vector<std::vector<float>>& out_syms, std::vector<std::vector<float>>& out_actions_distribution)const override;
     SantoriniPhase get_current_phase() const;
+
     static std::pair<int, int> decode_action(int action);
     static int encode_action(int row, int col);
 
@@ -64,6 +65,7 @@ private:
     std::optional<std::pair<int, int>> selection_;
 
     bool has_legal_action() const;
+    void get_current_state_status(std::stringstream& ss)const;
 
     // cache
     mutable std::vector<bool> cached_actions_masks_;

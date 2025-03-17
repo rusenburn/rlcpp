@@ -3,10 +3,14 @@ set(This ui)
 project(${This})
 
 set(SourceFiles 
+    components/button.cpp
+    components/component.cpp
     main.cpp
     players_utils.cpp
     damma/damma_ui_windows.cpp
     damma/damma_ui.cpp
+    main/main_ui.cpp
+    main/ui_windows.cpp
     othello/othello_ui.cpp
     othello/othello_ui_windows.cpp
     santorini/santorini_tournament_ui.cpp

@@ -1,6 +1,9 @@
 #include "walls_ui.hpp"
 #include <players/random_rollout_evaluator.hpp>
 #include <players/players.hpp>
+#include <deeplearning/alphazero/networks/shared_res_nn.hpp>
+#include <filesystem>
+#include "../players_utils.hpp"
 namespace rl::ui
 {
 
@@ -162,7 +165,7 @@ void WallsUi::handle_board_events()
     if (!paused_)
     {
         int current_player_ind = state_ptr_->player_turn();
-        IPlayerPtr& current_player_ptr_ref = players_.at(current_player_ind);
+        IPlayerPtr& current_player_ptr_ref = players_.at(current_player_ind)->player_ptr_;
         auto player_p = dynamic_cast<const rl::players::HumanPlayer*>(current_player_ptr_ref.get());
         if (player_p != nullptr)
         {
@@ -209,10 +212,9 @@ void WallsUi::handle_menu_events()
             reset_state();
             current_window = WallsWindow::game;
             players_.clear();
-            auto player_g_duration = std::chrono::duration<int, std::milli>(5000);
-            players_.push_back(std::make_unique<rl::players::HumanPlayer>());
-            players_.push_back(get_random_rollout_player_ptr(3, player_g_duration));
-            // players_.push_back(get_default_g_player(3, player_g_duration));
+            auto player_g_duration = std::chrono::duration<int, std::milli>(1000);
+            players_.push_back(get_human_player(state_ptr_.get()));
+            players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, player_g_duration, "walls_new_240_strongest.pt"));
         }
     }
 }
@@ -295,5 +297,4 @@ std::unique_ptr<rl::players::MctsPlayer> WallsUi::get_random_rollout_player_ptr(
     auto ev_ptr = std::make_unique<rl::players::RandomRolloutEvaluator>(state_ptr_->get_n_actions());
     return std::make_unique<rl::players::MctsPlayer>(state_ptr_->get_n_actions(), ev_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f);
 }
-
 } // namespace rl::ui

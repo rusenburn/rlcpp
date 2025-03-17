@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iostream>
 #include <array>
+
 namespace rl::games
 {
 
@@ -65,16 +66,7 @@ std::unique_ptr<SantoriniState> SantoriniState::step_state(int action) const
     {
         std::stringstream ss;
         ss << "Stepping a santorini state with an illegal action " << action << "\n";
-        auto am = actions_mask();
-        ss << "\nlegal actions are: ";
-        for (int a = 0; a < am.size(); a++)
-        {
-            if (am.at(action))
-            {
-                ss << a << ",";
-            }
-        }
-
+        get_current_state_status(ss);
         throw rl::common::IllegalActionException(ss.str());
     }
 
@@ -92,6 +84,10 @@ std::unique_ptr<SantoriniState> SantoriniState::step_state(int action) const
         }
         int next_player = 1 - current_player_;
         int next_turn = turn_ + 1;
+        if (next_turn == 2 || next_turn == 4)
+        {
+            next_player = current_player_;
+        }
         SantoriniPhase next_phase = SantoriniPhase::placement;
         if (next_turn > 4)
         {
@@ -689,4 +685,89 @@ bool SantoriniState::has_legal_action() const
     return false;
 }
 
+void SantoriniState::get_current_state_status(std::stringstream& ss)const
+{
+    auto am = actions_mask();
+    ss << "\nlegal actions are: ";
+    for (int a = 0; a < am.size(); a++)
+    {
+        if (am.at(a))
+        {
+            ss << a << ",";
+        }
+    }
+    ss << "\n";
+    ss << "Player: " << player_turn() << "\n";
+    ss << "Turn: " << turn_ << "\n";
+    ss << "Phase: ";
+    if (current_phase_ == SantoriniPhase::building)
+    {
+        ss << "Building\n";
+    }
+    else if (current_phase_ == SantoriniPhase::moving)
+    {
+        ss << "Moving\n";
+    }
+    else if (current_phase_ == SantoriniPhase::placement)
+    {
+        ss << "Placement\n";
+    }
+    else if (current_phase_ == SantoriniPhase::selection)
+    {
+        ss << "Selection\n";
+    }
+    ss << "Is Winning Move: " << (is_winning_move_ ? "true\n" : "false\n");
+    ss << "Is Terminal: " << (is_terminal() ? "true\n" : "false\n");
+    ss << "Buildings:\n";
+    for (int row = 0;row < ROWS;row++)
+    {
+        for (int col = 0;col < COLS;col++)
+        {
+            ss << buildings_[row][col];
+        }
+        ss << "\n";
+    }
+    ss << "Players:\n";
+    for (int row = 0;row < ROWS;row++)
+    {
+        for (int col = 0;col < COLS;col++)
+        {
+            int cell = players_[row][col];
+            if (cell == 0)
+            {
+                ss << ".";
+            }
+            else if (cell == 1)
+            {
+                ss << 'x';
+            }
+            else if (cell == -1)
+            {
+                ss << 'o';
+            }
+        }
+        ss << "\n";
+    }
+    ss << "Selection:\n";
+    if (selection_.has_value())
+    {
+        for (int row = 0;row < ROWS;row++)
+        {
+            for (int col = 0;col < COLS;col++)
+            {
+                if (selection_->first == row && selection_->second == col)
+                {
+                    ss << "1";
+                }
+                else
+                {
+                    ss << "0";
+                }
+            }
+            ss << "\n";
+        }
+    }
+
+
+}
 } // namespace rl::games

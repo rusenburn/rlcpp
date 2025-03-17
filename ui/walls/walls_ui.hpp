@@ -9,6 +9,7 @@
 #include <raylib.h>
 #include <players/players.hpp>
 #include <chrono>
+#include "../players_utils.hpp"
 #include "../IGameui.hpp"
 namespace rl::ui
 {
@@ -31,7 +32,7 @@ private:
     std::unique_ptr<rl::games::WallsState> state_ptr_;
     bool paused_{ false };
     std::vector<std::pair<Rectangle, Color>> buttons_{};
-    std::vector<std::unique_ptr<IPlayer>> players_{};
+    std::vector<std::unique_ptr<rl::ui::PlayerInfoFull>> players_;
     double pause_until_{};
     std::vector<float> obs_;
     std::vector<bool> actions_legality_;

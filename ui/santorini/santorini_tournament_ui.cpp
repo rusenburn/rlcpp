@@ -46,7 +46,7 @@ void SantoriniTournamentUI::handle_events()
 
 void SantoriniTournamentUI::init()
 {
-
+	// TODO : add init to IGAMEUI
 	round_robin_ptr_ = std::move(get_new_round_robin());
 	std::function<void(rl::common::MatchInfo)> fn = std::bind(&SantoriniTournamentUI::on_state_changed, this, std::placeholders::_1);
 	state_observer_ptr_ = round_robin_ptr_->matchinfo_changed_event.subscribe(fn);
@@ -74,7 +74,7 @@ std::unique_ptr<rl::common::RoundRobin> SantoriniTournamentUI::get_new_round_rob
 	players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_770.pt"));
 	players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_830.pt"));
 	players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_950.pt"));
-	players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, players_duration, "santorini_1010.pt"));
+	players_.push_back(get_network_amcts2_player(state_ptr_.get(), 3, players_duration, "santorini_strongest_1130.pt"));
 
 	std::vector<rl::common::PlayerInfo> players_info{};
 	for (auto& pi : players_)
@@ -228,7 +228,7 @@ void SantoriniTournamentUI::draw_players_name()
 		width = footing_width_;
 		height = footing_height_;
 		int initial_font_size = 16;
-		//DrawRectangle(0,top,width,height,RAYWHITE);
+		
 		DrawRectangle(0, top, width / 2, height, BLACK);
 		DrawRectangle(width / 2, top, width / 2, height, WHITE);
 		a = s1.str();

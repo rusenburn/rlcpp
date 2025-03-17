@@ -9,6 +9,7 @@
 #include <raylib.h>
 #include <players/players.hpp>
 #include <chrono>
+#include <../players_utils.hpp>
 #include "../IGameui.hpp"
 
 namespace rl::ui
@@ -26,7 +27,7 @@ private:
     OthelloWindow current_window;
     std::vector<std::pair<Rectangle, Color>> buttons_{};
     std::unique_ptr<rl::games::OthelloState> state_ptr_;
-    std::vector<std::unique_ptr<IPlayer>> players_{};
+    std::vector<std::unique_ptr<rl::ui::PlayerInfoFull>> players_{};
     void initialize_buttons();
     void draw_board();
     void draw_menu();
@@ -34,8 +35,6 @@ private:
     void handle_board_events();
     void handle_menu_events();
     void perform_action(int action);
-    std::unique_ptr<rl::players::GPlayer> get_default_g_player(int n_sims, std::chrono::duration<int, std::milli> minimum_duration);
-    std::unique_ptr<rl::players::MctsPlayer> get_random_rollout_player_ptr(int n_sims, std::chrono::duration<int, std::milli> minimum_duration);
     std::pair<int, int> get_scores();
 
 public:

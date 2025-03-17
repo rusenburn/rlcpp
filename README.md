@@ -10,7 +10,8 @@
     * Walls ( custom environment did not know the original name )
 
 ## Requirements
-* Libtorch 2.2.1
-* CUDA 11.8 ( If you have cuda device)
-* cuDNN tools (if you have cuda device)
+* MSVC Compiler ( on windows )
 * cmake
+* CUDA 11.8 ( If you have cuda device)
+* cuDNN tools (If you have cuda device) (v8.5.0.96 used)
+* Libtorch 2.2.1

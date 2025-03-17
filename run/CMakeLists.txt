@@ -48,12 +48,12 @@ if (MSVC)
                      $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 endif (MSVC)
 
-# by chatgpt
-if(WIN32)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E env "PATH=$<TARGET_FILE_DIR:${PROJECT_NAME}>;$ENV{PATH}" $<TARGET_FILE:${PROJECT_NAME}>
-    )
-endif()
+# # by chatgpt
+# if(WIN32)
+#     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+#         COMMAND ${CMAKE_COMMAND} -E env "PATH=$<TARGET_FILE_DIR:${PROJECT_NAME}>;$ENV{PATH}" $<TARGET_FILE:${PROJECT_NAME}>
+#     )
+# endif()
 
 
 # train_az.exe
@@ -101,12 +101,12 @@ if (MSVC)
                      $<TARGET_FILE_DIR:train_az>)
 endif (MSVC)
 
-# by chatgpt
-if(WIN32)
-    add_custom_command(TARGET train_az POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E env "PATH=$<TARGET_FILE_DIR:train_az;$ENV{PATH}" $<TARGET_FILE:train_az>
-    )
-endif()
+# # by chatgpt
+# if(WIN32)
+#     add_custom_command(TARGET train_az POST_BUILD
+#         COMMAND ${CMAKE_COMMAND} -E env "PATH=$<TARGET_FILE_DIR:train_az;$ENV{PATH}" $<TARGET_FILE:train_az>
+#     )
+# endif()
 
 # convert
 set(This conv)
@@ -148,9 +148,9 @@ if (MSVC)
                      $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 endif (MSVC)
 
-# by chatgpt
-if(WIN32)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E env "PATH=$<TARGET_FILE_DIR:${PROJECT_NAME}>;$ENV{PATH}" $<TARGET_FILE:${PROJECT_NAME}>
-    )
-endif()
+# # by chatgpt
+# if(WIN32)
+#     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+#         COMMAND ${CMAKE_COMMAND} -E env "PATH=$<TARGET_FILE_DIR:${PROJECT_NAME}>;$ENV{PATH}" $<TARGET_FILE:${PROJECT_NAME}>
+#     )
+# endif()

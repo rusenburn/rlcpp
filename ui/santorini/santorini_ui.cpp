@@ -17,7 +17,6 @@ SantoriniUI::SantoriniUI(int width, int height)
     inner_cell_size_ = cell_size_ - 2 * padding_;
     initialize_buttons();
     reset_state();
-    std::this_thread::sleep_for(std::chrono::seconds(1000));
 }
 
 SantoriniUI::~SantoriniUI() = default;
@@ -223,11 +222,8 @@ void SantoriniUI::handle_menu_events()
             players_.clear();
             auto players_duration = std::chrono::milliseconds(1000);
 
-            players_.push_back(get_network_amcts_player(3, players_duration, "santorini_strongest_340.pt"));
-            players_.push_back(get_network_mcts_player(3, players_duration, "santorini_strongest_340.pt"));
-            // players_.push_back(get_network_amcts_player(3, players_duration*2,"santorini_strongest_120.pt"));
-            // players_.push_back(get_random_rollout_player_ptr(3, player_g_duration));
-            // players_.push_back(std::make_unique<rl::players::HumanPlayer>());
+            players_.push_back(std::make_unique<rl::players::HumanPlayer>());
+            players_.push_back(get_network_amcts_player(3, players_duration, "santorini_strongest_1260.pt"));
         }
     }
 }
@@ -359,7 +355,6 @@ std::unique_ptr<rl::players::AmctsPlayer> SantoriniUI::get_network_amcts_player(
     auto network_ptr = std::make_unique<rl::deeplearning::alphazero::SharedResNetwork>(state_ptr_->get_observation_shape(), state_ptr_->get_n_actions(),
         128, 512, 5);
     auto device = torch::cuda::is_available() ? torch::kCUDA : torch::kCPU;
-    // const std::string load_name = "santorini_strongest_120.pt";
     const std::string folder_name = "../checkpoints";
     std::filesystem::path folder(folder_name);
     std::filesystem::path file_path;
