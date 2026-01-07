@@ -278,6 +278,7 @@ bool TicTacToeState::is_backward_diagonal_win(int player) const
     return backward;
 }
 
+
 TicTacToeState::~TicTacToeState() = default;
 std::unique_ptr<rl::common::IState> TicTacToeState::clone() const
 {

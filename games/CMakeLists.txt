@@ -5,6 +5,7 @@ project(${This})
 set(SourceFiles 
     src/damma.cpp
     src/english_draughts.cpp
+    src/gobblet_goblers.cpp
     src/tictactoe.cpp
     src/othello.cpp
     src/santorini.cpp

@@ -13,6 +13,7 @@
 #include <games/walls.hpp>
 #include <games/damma.hpp>
 #include <games/santorini.hpp>
+#include <games/gobblet_goblers.hpp>
 
 namespace rl::run
 {
@@ -139,6 +140,7 @@ void MatchConsole::edit_game_settings()
         std::cout << "[4] Walls\n";
         std::cout << "[5] DAMMA\n";
         std::cout << "[6] Santorini\n";
+        std::cout << "[7] Gobblet Gobblers\n";
 
         std::cout << std::endl;
 
@@ -164,6 +166,9 @@ void MatchConsole::edit_game_settings()
             break;
         case 6:
             state_index_ = SANTORINI_GAME;
+            break;
+        case 7:
+            state_index_ = GOBBLET_GAME;
             break;
         default:
             break;
@@ -376,6 +381,9 @@ IStatePtr MatchConsole::get_state_ptr()
     case SANTORINI_GAME:
         return rl::games::SantoriniState::initialize();
         break;
+    case GOBBLET_GAME:
+        return rl::games::GobbletGoblersState::initialize();
+        break;
     default:
         throw "";
         break;
@@ -399,7 +407,7 @@ INetworkPtr MatchConsole::get_network_ptr(int filters, int fc_dims, int blocks, 
     std::filesystem::path file_path;
     file_path = folder / load_name;
     std::cout << "Network file path is" << file_path.string() << std::endl;
-    
+
     network_ptr->load(file_path.string());
     network_ptr->to(device);
     int n_examples = 1;
@@ -414,7 +422,7 @@ INetworkPtr MatchConsole::get_network_ptr(int filters, int fc_dims, int blocks, 
 INetworkPtr MatchConsole::get_tiny_network_ptr(std::string load_name)
 {
     auto state_pr = get_state_ptr();
-    auto network_ptr = std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_pr->get_observation_shape(), state_pr->get_n_actions(),true);
+    auto network_ptr = std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_pr->get_observation_shape(), state_pr->get_n_actions(), true);
     auto device = torch::kCPU;
     const std::string folder_name = "../checkpoints";
     std::filesystem::path folder(folder_name);
@@ -482,7 +490,7 @@ IPlayerPtr MatchConsole::get_amcts2_player(std::unique_ptr<rl::players::IEvaluat
 IPlayerPtr MatchConsole::get_concurrent_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration)
 {
     auto state_ptr = get_state_ptr();
-    return std::make_unique<rl::players::ConcurrentPlayer>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f, 8,0.0f,-1.0f);
+    return std::make_unique<rl::players::ConcurrentPlayer>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f, 8, 0.0f, -1.0f);
 }
 int MatchConsole::pick_player_type()
 {

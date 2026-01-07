@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.embeddedhtml": "html",
         "array": "cpp",
         "ratio": "cpp",
         "vector": "cpp",
@@ -96,7 +97,8 @@
         "csignal": "cpp",
         "future": "cpp",
         "scoped_allocator": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "ranges": "cpp"
     },
     "cmake.defaultVariants": {
         "buildType": {

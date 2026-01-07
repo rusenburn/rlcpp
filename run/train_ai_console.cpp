@@ -9,6 +9,7 @@
 #include <games/walls.hpp>
 #include <games/damma.hpp>
 #include <games/santorini.hpp>
+#include <games/gobblet_goblers.hpp>
 #include <filesystem>
 namespace rl::run
 {
@@ -64,6 +65,9 @@ void TrainAIConsole::print_current_settings()
         break;
     case SANTORINI:
         std::cout << "Santorini\n";
+        break;
+    case GOBBLET_GOBLERS:
+        std::cout << "Gobblet Goblers\n";
         break;
     default:
         std::cout << "Default\n";
@@ -199,7 +203,7 @@ void TrainAIConsole::train_ai()
     const std::string folder_name = "../checkpoints";
     std::filesystem::path folder(folder_name);
     std::filesystem::path file_path;
-    file_path =  load_name_.size() ? (folder / load_name_) : std::filesystem::path();
+    file_path = load_name_.size() ? (folder / load_name_) : std::filesystem::path();
     auto alphazero_trainer = rl::deeplearning::alphazero::AlphaZero(
         state_ptr->clone(),
         state_ptr->clone(),
@@ -242,6 +246,9 @@ IStatePtr TrainAIConsole::get_state_ptr()
     case SANTORINI:
         return rl::games::SantoriniState::initialize();
         break;
+    case GOBBLET_GOBLERS:
+        return rl::games::GobbletGoblersState::initialize();
+        break;
     default:
         return rl::games::OthelloState::initialize();
         break;
@@ -261,7 +268,7 @@ IAlphazeroNetworkPtr TrainAIConsole::get_network_ptr()
 IAlphazeroNetworkPtr TrainAIConsole::get_tiny_network_ptr()
 {
     auto state_ptr = get_state_ptr();
-    return std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_ptr->get_observation_shape(), state_ptr->get_n_actions(),true);
+    return std::make_unique<rl::deeplearning::alphazero::TinyNetwork>(state_ptr->get_observation_shape(), state_ptr->get_n_actions(), true);
 }
 
 
@@ -288,6 +295,9 @@ void TrainAIConsole::edit_game_settings()
     case SANTORINI:
         game_name = "Santorini";
         break;
+    case GOBBLET_GOBLERS:
+        game_name = "Gobblet Goblers";
+        break;
     default:
         game_name = "Default";
         break;
@@ -299,6 +309,7 @@ void TrainAIConsole::edit_game_settings()
     std::cout << "[3] Walls\n";
     std::cout << "[4] Damma\n";
     std::cout << "[5] Santorini\n";
+    std::cout << "[6] Gobblet Goblers\n";
     std::cout << "Enter new value: ";
     std::cin >> state_choice_;
 }

@@ -31,6 +31,7 @@ private:
     static constexpr int WALLS_GAME = 3;
     static constexpr int DAMMA_GAME = 4;
     static constexpr int SANTORINI_GAME = 5;
+    static constexpr int GOBBLET_GAME = 6;
 
     int state_index_{ OTHELLO_GAME };
     int n_sets_{ 32 };

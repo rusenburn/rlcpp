@@ -8,6 +8,7 @@
 #include <games/walls.hpp>
 #include <games/damma.hpp>
 #include <games/santorini.hpp>
+#include <games/gobblet_goblers.hpp>
 #include <players/players.hpp>
 #include <common/concurrent_match.hpp>
 namespace rl::run
@@ -84,6 +85,9 @@ void ConcurrentMatchConsole::print_current_settings()
     case SANTORINI_GAME:
         std::cout << "Santorini\n";
         break;
+    case GOBBLET_GAME:
+        std::cout << "Gobllet Goblers\n";
+        break;
     default:
         std::cout << "Default\n";
         break;
@@ -150,6 +154,7 @@ void ConcurrentMatchConsole::edit_game_settings()
     std::cout << "[" << WALLS_GAME << "] Walls\n";
     std::cout << "[" << DAMMA_GAME << "] DAMMA\n";
     std::cout << "[" << SANTORINI_GAME << "] Santorini\n";
+    std::cout << "[" << GOBBLET_GAME << "] Gobblet goblers\n";
 
     std::cout << std::endl;
 
@@ -173,6 +178,9 @@ void ConcurrentMatchConsole::edit_game_settings()
         break;
     case SANTORINI_GAME:
         state_index_ = SANTORINI_GAME;
+        break;
+    case GOBBLET_GAME:
+        state_index_ = GOBBLET_GAME;
         break;
     default:
         break;
@@ -401,6 +409,9 @@ IStatePtr ConcurrentMatchConsole::get_state_ptr()
         break;
     case SANTORINI_GAME:
         return rl::games::SantoriniState::initialize();
+        break;
+    case GOBBLET_GAME:
+        return rl::games::GobbletGoblersState::initialize();
         break;
     default:
         throw "";

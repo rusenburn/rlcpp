@@ -40,6 +40,7 @@ private:
     static constexpr int WALLS_GAME = 3;
     static constexpr int DAMMA_GAME = 4;
     static constexpr int SANTORINI_GAME = 5;
+    static constexpr int GOBBLET_GAME = 6;
 
     int state_index_{ OTHELLO_GAME };
     void print_current_settings();
@@ -64,7 +65,7 @@ private:
     IPlayerPtr get_human_player();
     IPlayerPtr get_amcts2_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration);
     IPlayerPtr get_concurrent_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration);
-    
+
     int pick_player_type();
 
     // Player 0

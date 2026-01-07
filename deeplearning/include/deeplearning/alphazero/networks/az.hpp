@@ -5,6 +5,7 @@
 #include <utility>
 #include <string_view>
 #include "network_type.hpp"
+#include <filesystem>
 namespace rl::deeplearning::alphazero
 {
 class IAlphazeroNetwork
@@ -84,6 +85,8 @@ public:
     }
     void load(std::string file_path) override
     {
+        std::filesystem::path absolute_path = std::filesystem::absolute(file_path);
+        std::cout << "Loading " << absolute_path;
         torch::serialize::InputArchive arv;
         arv.load_from(file_path);
         mod_->load(arv);

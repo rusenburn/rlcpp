@@ -9,6 +9,8 @@ set(SourceFiles
     players_utils.cpp
     damma/damma_ui_windows.cpp
     damma/damma_ui.cpp
+    gobblet_goblers/gobblet_goblers_ui.cpp
+    gobblet_goblers/gobblet_goblers_windows.cpp
     main/main_ui.cpp
     main/ui_windows.cpp
     othello/othello_ui.cpp
