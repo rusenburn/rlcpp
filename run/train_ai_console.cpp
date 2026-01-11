@@ -10,6 +10,7 @@
 #include <games/damma.hpp>
 #include <games/santorini.hpp>
 #include <games/gobblet_goblers.hpp>
+#include <games/migoyugo.hpp>
 #include <filesystem>
 namespace rl::run
 {
@@ -68,6 +69,9 @@ void TrainAIConsole::print_current_settings()
         break;
     case GOBBLET_GOBLERS:
         std::cout << "Gobblet Goblers\n";
+        break;
+    case MIGOYUGO:
+        std::cout << "Migoyugo\n";
         break;
     default:
         std::cout << "Default\n";
@@ -249,6 +253,9 @@ IStatePtr TrainAIConsole::get_state_ptr()
     case GOBBLET_GOBLERS:
         return rl::games::GobbletGoblersState::initialize();
         break;
+    case MIGOYUGO:
+        return rl::games::MigoyugoState::initialize();
+        break;
     default:
         return rl::games::OthelloState::initialize();
         break;
@@ -298,6 +305,9 @@ void TrainAIConsole::edit_game_settings()
     case GOBBLET_GOBLERS:
         game_name = "Gobblet Goblers";
         break;
+    case MIGOYUGO:
+        game_name = "Migoyugo";
+        break;
     default:
         game_name = "Default";
         break;
@@ -310,6 +320,7 @@ void TrainAIConsole::edit_game_settings()
     std::cout << "[4] Damma\n";
     std::cout << "[5] Santorini\n";
     std::cout << "[6] Gobblet Goblers\n";
+    std::cout << "[7] Migoyugo\n";
     std::cout << "Enter new value: ";
     std::cin >> state_choice_;
 }

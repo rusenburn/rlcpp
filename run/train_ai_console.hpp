@@ -22,6 +22,7 @@ private:
     static constexpr int DAMMA = 4;
     static constexpr int SANTORINI = 5;
     static constexpr int GOBBLET_GOBLERS = 6;
+    static constexpr int MIGOYUGO = 7;
 
     int state_choice_{ 1 };
     int n_iterations_{ 20 };
