@@ -278,4 +278,37 @@ void GobbletGoblersUI::perform_player_action(int row, int col)
     }
 }
 
+void GobbletGoblersUI::draw_piece(int left_center, int top_center, int player)
+{
+    int radius = inner_cell_size_ / 4;
+
+    Color piece_color = player == 0 ? BLACK : WHITE;
+
+    DrawCircle(left_center, top_center, radius, piece_color);
+}
+
+void GobbletGoblersUI::draw_ground(int left_center, int top_center)
+{
+    int left = left_center - inner_cell_size_ / 2;
+    int top = top_center - inner_cell_size_ / 2;
+    DrawRectangle(left, top, inner_cell_size_, inner_cell_size_, LIGHTGRAY);
+}
+
+void GobbletGoblersUI::draw_legal_actions()
+{
+    int top, left;
+    for (int action = 0; action < actions_legality_.size(); action++)
+    {
+        if (actions_legality_.at(action))
+        {
+            int row = action / GobbletGoblersState::COLS;
+            int col = action % GobbletGoblersState::COLS;
+            left = (col + 1) * cell_size_ + padding_;
+            top = (row + 1) * cell_size_ + padding_;
+            Rectangle ol = { left, top, inner_cell_size_, inner_cell_size_ };
+            DrawRectangleLinesEx(ol, 2.0f, GREEN);
+        }
+    }
+}
+
 }

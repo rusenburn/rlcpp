@@ -14,6 +14,7 @@
 #include <games/damma.hpp>
 #include <games/santorini.hpp>
 #include <games/gobblet_goblers.hpp>
+#include <games/migoyugo.hpp>
 
 namespace rl::run
 {
@@ -141,6 +142,7 @@ void MatchConsole::edit_game_settings()
         std::cout << "[5] DAMMA\n";
         std::cout << "[6] Santorini\n";
         std::cout << "[7] Gobblet Gobblers\n";
+        std::cout << "[8] Migoyugo\n";
 
         std::cout << std::endl;
 
@@ -169,6 +171,9 @@ void MatchConsole::edit_game_settings()
             break;
         case 7:
             state_index_ = GOBBLET_GAME;
+            break;
+        case 8:
+            state_index_ = MIGOYUGO_GAME;
             break;
         default:
             break;
@@ -383,6 +388,9 @@ IStatePtr MatchConsole::get_state_ptr()
         break;
     case GOBBLET_GAME:
         return rl::games::GobbletGoblersState::initialize();
+        break;
+    case MIGOYUGO_GAME:
+        return rl::games::MigoyugoState::initialize();
         break;
     default:
         throw "";

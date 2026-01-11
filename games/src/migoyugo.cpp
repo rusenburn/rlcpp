@@ -4,15 +4,16 @@
 #include <iostream>
 #include <games/migoyugo.hpp>
 #include <common/exceptions.hpp>
-#include "migoyugo.hpp"
 
 
 namespace rl::games
 {
 
-MigoyugoState::MigoyugoState(std::array<std::array<int8_t, COLS>, ROWS> board, int player)
+MigoyugoState::MigoyugoState(std::array<std::array<int8_t, COLS>, ROWS> board, int player, int step, int last_action)
     : board_(board),
-    current_player_(player)
+    current_player_(player),
+    step_(step),
+    last_action_(last_action)
 {
 }
 
@@ -31,7 +32,7 @@ std::unique_ptr<MigoyugoState> MigoyugoState::initialize_state()
     }
 
     int player_0 = 0;
-    auto state_ptr = std::make_unique<MigoyugoState>(obs, player_0, 0);
+    auto state_ptr = std::make_unique<MigoyugoState>(obs, player_0, 0, -1);
     return state_ptr;
 }
 
@@ -109,20 +110,13 @@ std::unique_ptr<MigoyugoState> MigoyugoState::step_state(int action) const
         }
     }
 
-    return std::make_unique<MigoyugoState>(new_board, other);
+    return std::make_unique<MigoyugoState>(new_board, other, step_ + 1, action);
 }
 
 void MigoyugoState::render() const
 {
-    std::stringstream ss;
-    int player_0_migo = 1;
-    int player_0_yugo = 2;
-    int player_1_migo = -1;
-    int player_1_yugo = -2;
-
     auto legal_actions = actions_mask();
-    std::array<std::array<int, COLS>, ROWS> legal_actions_2d{};
-    int legal_actions_2d[ROWS][COLS];
+    std::array<std::array<bool, COLS>, ROWS> legal_actions_2d{};
     for (int row = 0; row < ROWS; row++)
     {
         for (int col = 0; col < COLS; col++)
@@ -137,44 +131,45 @@ void MigoyugoState::render() const
 
     for (int row = 0; row < ROWS; row++)
     {
-        std::cout << std::setw(3) << std::setfill(' ') << row * 8;
+        std::cout << std::setw(3) << std::setfill(' ') << row;
         std::cout << ' ';
         for (int col = 0; col < COLS; col++)
         {
-            std::string v = ".";
             int cell = board_.at(row).at(col);
+            std::string display = ".";
 
-            if (cell == player_0_migo)
+            if (cell == 1)
             {
-                ss << 'x';
+                display = "x";
             }
-            else if (cell == player_0_yugo)
+            else if (cell == 2)
             {
-                ss << 'x';
+                display = "X";
             }
-            else if (cell == player_1_migo)
+            else if (cell == -1)
             {
-                ss << 'o';
+                display = "o";
             }
-            else if (cell == player_1_yugo)
+            else if (cell == -2)
             {
-                ss << 'O';
+                display = "O";
             }
-            if (legal_actions_2d.at(row).at(col))
+            else if (legal_actions_2d.at(row).at(col))
             {
-                v = std::to_string((row * COLS + col));
+                display = std::to_string(row * COLS + col);
             }
-            std::cout << std::setw(3) << std::setfill(' ') << v;
+
+            std::cout << std::setw(3) << std::setfill(' ') << display;
         }
         std::cout << '\n';
     }
-    char v = 'X';
+    char player_char = 'x';
     if (current_player_ == 1)
     {
-        v = 'O';
+        player_char = 'o';
     }
 
-    std::cout << "\n#Player " << v << " Turn #" << std::endl;
+    std::cout << "\nPlayer " << player_char << " to move" << std::endl;
 }
 std::unique_ptr<rl::common::IState> MigoyugoState::step(int action) const
 {
@@ -409,7 +404,7 @@ bool MigoyugoState::check_forward_diagonal_winning(std::array<std::array<int8_t,
         // opponent_yugos_board.at(row).at(col) &&
         opponent_yugos_board.at(row + 1).at(col + 1) &&
         opponent_yugos_board.at(row + 2).at(col + 2) &&
-        opponent_yugos_board.at(row + 2).at(col + 3)
+        opponent_yugos_board.at(row + 3).at(col + 3)
         )
     {
         return true;
@@ -429,7 +424,7 @@ bool MigoyugoState::check_backward_diagonal_winning(std::array<std::array<int8_t
         // opponent_yugos_board.at(row).at(col) &&
         opponent_yugos_board.at(row + 1).at(col - 1) &&
         opponent_yugos_board.at(row + 2).at(col - 2) &&
-        opponent_yugos_board.at(row + 2).at(col - 3)
+        opponent_yugos_board.at(row + 3).at(col - 3)
         )
     {
         return true;
@@ -547,7 +542,7 @@ float MigoyugoState::get_reward() const
     }
     else if (player_0_yugos < player_1_yugos)
     {
-        player_0_score = 1.0f;
+        player_0_score = -1.0f;
     }
     else {
         player_0_score = 0.0f;
@@ -559,7 +554,7 @@ float MigoyugoState::get_reward() const
     return cached_result_.value();
 }
 
-int MigoyugoState::encode_action(int row, int col)const
+int MigoyugoState::encode_action(int row, int col)
 {
     int action = row * COLS + col;
     return action;
@@ -576,6 +571,62 @@ std::unique_ptr<rl::common::IState> MigoyugoState::clone() const
     return clone_state();
 }
 
+std::string MigoyugoState::to_short() const
+{
+    if (cached_short_.has_value())
+    {
+        return cached_short_.value();
+    }
+
+    std::stringstream ss;
+    for (int row = 0; row < ROWS; row++)
+    {
+        int empty_count = 0;
+        for (int col = 0; col < COLS; col++)
+        {
+            int cell = board_.at(row).at(col);
+            if (cell == 0)
+            {
+                empty_count++;
+            }
+            else
+            {
+                if (empty_count > 0)
+                {
+                    ss << empty_count;
+                    empty_count = 0;
+                }
+                if (cell == 1)
+                {
+                    ss << 'x';
+                }
+                else if (cell == 2)
+                {
+                    ss << 'X';
+                }
+                else if (cell == -1)
+                {
+                    ss << 'o';
+                }
+                else if (cell == -2)
+                {
+                    ss << 'O';
+                }
+            }
+        }
+        if (empty_count > 0)
+        {
+            ss << empty_count;
+        }
+        if (row < ROWS - 1)
+        {
+            ss << '/';
+        }
+    }
+    ss << ' ' << current_player_;
+    cached_short_.emplace(ss.str());
+    return cached_short_.value();
+}
 
 void MigoyugoState::get_symmetrical_obs_and_actions(std::vector<float> const& obs, std::vector<float> const& actions_distribution, std::vector<std::vector<float>>& out_syms, std::vector<std::vector<float>>& out_actions_distribution) const
 {
@@ -723,6 +774,8 @@ std::vector<float> MigoyugoState::get_observation() const
     cached_observation_ = true_obs;
     return true_obs;
 }
+
+int MigoyugoState::get_last_action()const {
+    return last_action_;
 }
-
-
+}

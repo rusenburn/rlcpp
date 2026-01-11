@@ -3,6 +3,7 @@
 #include "../walls/walls_ui.hpp"
 #include "../damma/damma_ui.hpp"
 #include "../othello/othello_ui.hpp"
+#include "../migoyugo/migoyugo_ui.hpp"
 #include <functional>
 namespace rl::ui
 {
@@ -40,6 +41,12 @@ MainUI::MainUI(int width, int height)
     rect = { left, top, button_width, button_height };
     buttons_.push_back(std::move(std::make_unique<Button>("Othello", rect, color)));
     fn = std::bind(&MainUI::on_button_4_clicked, this, std::placeholders::_1);
+    button_observers_.push_back(buttons_.back()->subscribe(fn));
+
+    top += padding_top + button_height;
+    rect = { left, top, button_width, button_height };
+    buttons_.push_back(std::move(std::make_unique<Button>("Migoyugo", rect, color)));
+    fn = std::bind(&MainUI::on_button_5_clicked, this, std::placeholders::_1);
     button_observers_.push_back(buttons_.back()->subscribe(fn));
     // subscribe to button
 }
@@ -98,6 +105,10 @@ void MainUI::on_button_3_clicked(int a) {
 
 void MainUI::on_button_4_clicked(int a) {
     this->game_ui_ptr_ = std::move(std::make_unique<OthelloUI>(width_, height_));
+}
+
+void MainUI::on_button_5_clicked(int a) {
+    this->game_ui_ptr_ = std::move(std::make_unique<MigoyugoUI>(width_, height_));
 }
 
 } // namespace rl::ui

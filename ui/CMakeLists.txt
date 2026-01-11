@@ -20,6 +20,7 @@ set(SourceFiles
     santorini/santorini_ui_windows.cpp
     walls/walls_ui.cpp
     walls/walls_ui_windows.cpp
+    migoyugo/migoyugo_ui.cpp
     IGameui.cpp
 )
 

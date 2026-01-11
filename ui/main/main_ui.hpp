@@ -31,6 +31,7 @@ private:
     void on_button_2_clicked(int a);
     void on_button_3_clicked(int a);
     void on_button_4_clicked(int a);
+    void on_button_5_clicked(int a);
 };
 } // namespace rl::ui
 

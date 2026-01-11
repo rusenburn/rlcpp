@@ -41,6 +41,7 @@ private:
     static constexpr int DAMMA_GAME = 4;
     static constexpr int SANTORINI_GAME = 5;
     static constexpr int GOBBLET_GAME = 6;
+    static constexpr int MIGOYUGO_GAME = 7;
 
     int state_index_{ OTHELLO_GAME };
     void print_current_settings();
