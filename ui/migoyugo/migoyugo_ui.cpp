@@ -11,7 +11,11 @@ MigoyugoUI::MigoyugoUI(int width, int height)
     pause_until_{ 0.0 }
 
 {
-    cell_size_ = width_ / 8;
+    // Reserve space for coordinate labels: left margin for numbers, right/bottom for letters
+    // Allocate space for row numbers on the left
+    int left_margin = 30;  // Fixed space for row numbers
+    int board_width = width_ - left_margin;
+    cell_size_ = board_width / 8;
     inner_cell_size_ = cell_size_ - 2 * padding_;
     initialize_buttons();
     reset_state();
@@ -78,6 +82,7 @@ void MigoyugoUI::draw_board()
     int left, top, width, height;
 
     int current_player = state_ptr_->player_turn();
+    int last_action = state_ptr_->get_last_action();
 
     for (int row = 0; row < ROWS; row++)
     {
@@ -102,7 +107,8 @@ void MigoyugoUI::draw_board()
             if (current_player == 0) {
                 actual_player_for_our = 0; // "our" channels contain player 0 pieces
                 actual_player_for_opp = 1; // "opp" channels contain player 1 pieces
-            } else {
+            }
+            else {
                 actual_player_for_our = 1; // "our" channels contain player 1 pieces
                 actual_player_for_opp = 0; // "opp" channels contain player 0 pieces
             }
@@ -123,8 +129,33 @@ void MigoyugoUI::draw_board()
             {
                 draw_piece(left, top, actual_player_for_opp, true); // yugo
             }
+
+            // Highlight last action with red square
+            int current_action = row * COLS + col;
+            if (current_action == last_action && last_action >= 0) {
+                Rectangle last_action_rect = { left, top, inner_cell_size_, inner_cell_size_ };
+                DrawRectangleLinesEx(last_action_rect, 3.0f, RED);
+            }
         }
     }
+
+    // Draw coordinate labels
+    // Column letters a-h at bottom
+    for (int col = 0; col < COLS; col++) {
+        left = col * cell_size_ + padding_ + inner_cell_size_ / 2 - 5;
+        top = ROWS * cell_size_ + padding_ + 5;
+        char letter = 'a' + col;
+        DrawText(&letter, left, top, 16, BLACK);
+    }
+
+    // Row numbers 1-8 (1 at bottom, 8 at top)
+    for (int row = 0; row < ROWS; row++) {
+        left = 5;  // Fixed position within the left margin
+        top = row * cell_size_ + padding_ + inner_cell_size_ / 2 - 8;  // Center vertically in the cell
+        char number = '8' - row;  // 8 at top (row 0), 1 at bottom (row 7)
+        DrawText(&number, left, top, 16, BLACK);
+    }
+
     draw_legal_actions();
 }
 
@@ -189,7 +220,7 @@ void MigoyugoUI::handle_menu_events()
             auto players_duration = std::chrono::milliseconds(1000);
 
             players_.push_back(get_human_player(state_ptr_.get()));
-            players_.push_back(get_random_rollout_player_ptr(state_ptr_.get(), 3, players_duration));
+            players_.push_back(get_default_g_player(state_ptr_.get(), 3, players_duration));
         }
     }
 }
@@ -205,7 +236,7 @@ void MigoyugoUI::perform_action(int action)
 
 void MigoyugoUI::perform_player_action(int row, int col)
 {
-    int action =  rl::games::MigoyugoState::encode_action(row, col);
+    int action = rl::games::MigoyugoState::encode_action(row, col);
     if (action < state_ptr_->get_n_actions() && actions_legality_.at(action))
     {
         perform_action(action);
@@ -221,11 +252,11 @@ void MigoyugoUI::draw_piece(int left, int top, int player, bool is_yugo)
     Color piece_color;
     if (player == 0)
     {
-        piece_color = is_yugo ? DARKBLUE : BLACK;
+        piece_color = is_yugo ? WHITE : WHITE;
     }
     else
     {
-        piece_color = is_yugo ? DARKGREEN : WHITE;
+        piece_color = is_yugo ? BLACK : BLACK;
     }
 
     DrawCircle(left_center, top_center, radius, piece_color);
