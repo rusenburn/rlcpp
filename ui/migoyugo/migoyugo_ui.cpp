@@ -92,7 +92,7 @@ void MigoyugoUI::draw_board()
             top = row * cell_size_ + padding_;
 
             // Draw cell background
-            DrawRectangle(left, top, inner_cell_size_, inner_cell_size_, LIGHTGRAY);
+            DrawRectangle(left, top, inner_cell_size_, inner_cell_size_, DARKGREEN);
 
             int channel_size = ROWS * COLS;
             int our_migo_ind = OUR_MIGO_CHANNEL * channel_size + row * COLS + col;
@@ -217,10 +217,10 @@ void MigoyugoUI::handle_menu_events()
             reset_state();
             current_window_ = MigoyugoWindow::game;
             players_.clear();
-            auto players_duration = std::chrono::milliseconds(1000);
+            auto players_duration = std::chrono::milliseconds(5000);
 
-            players_.push_back(get_human_player(state_ptr_.get()));
-            players_.push_back(get_default_g_player(state_ptr_.get(), 3, players_duration));
+            players_.push_back(get_default_g_player(state_ptr_.get(), 2, players_duration));
+            players_.push_back(get_network_amcts2_player(state_ptr_.get(),3,players_duration,"migoyugo_strongest_400.pt"));
         }
     }
 }

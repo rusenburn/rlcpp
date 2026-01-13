@@ -6,12 +6,12 @@ namespace rl::players
 GPlayer::GPlayer(int minimum_simulations,
     std::chrono::duration<int, std::milli> duration_in_millis,
     int min_ref_count,
-    float b_squared,
+    float bias,
     bool save_illegal_amaf_actions)
     : minimum_simulations_{ minimum_simulations },
     duration_in_millis_{ duration_in_millis },
     min_ref_count_{ min_ref_count },
-    bias_{ bias_ },
+    bias_{ bias },
     save_illegal_amaf_actions_{ save_illegal_amaf_actions }
 {
 }

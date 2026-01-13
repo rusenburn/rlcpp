@@ -9,6 +9,7 @@
 #include <games/damma.hpp>
 #include <games/santorini.hpp>
 #include <games/gobblet_goblers.hpp>
+#include <games/migoyugo.hpp>
 #include <players/players.hpp>
 #include <common/concurrent_match.hpp>
 namespace rl::run
@@ -88,6 +89,9 @@ void ConcurrentMatchConsole::print_current_settings()
     case GOBBLET_GAME:
         std::cout << "Gobllet Goblers\n";
         break;
+    case MIGOYUGO_GAME:
+        std::cout << "Migoyugo\n";
+        break;
     default:
         std::cout << "Default\n";
         break;
@@ -155,6 +159,7 @@ void ConcurrentMatchConsole::edit_game_settings()
     std::cout << "[" << DAMMA_GAME << "] DAMMA\n";
     std::cout << "[" << SANTORINI_GAME << "] Santorini\n";
     std::cout << "[" << GOBBLET_GAME << "] Gobblet goblers\n";
+    std::cout << "[" << MIGOYUGO_GAME << "] Migoyugo\n";
 
     std::cout << std::endl;
 
@@ -181,6 +186,9 @@ void ConcurrentMatchConsole::edit_game_settings()
         break;
     case GOBBLET_GAME:
         state_index_ = GOBBLET_GAME;
+        break;
+    case MIGOYUGO_GAME:
+        state_index_ = MIGOYUGO_GAME;
         break;
     default:
         break;
@@ -413,6 +421,9 @@ IStatePtr ConcurrentMatchConsole::get_state_ptr()
     case GOBBLET_GAME:
         return rl::games::GobbletGoblersState::initialize();
         break;
+    case MIGOYUGO_GAME:
+        return rl::games::MigoyugoState::initialize();
+        break;
     default:
         throw "";
         break;
@@ -452,5 +463,3 @@ IConcurrentPlayerPtr ConcurrentMatchConsole::get_concurrent_player(std::unique_p
     return std::make_unique<rl::players::ConcurrentPlayer>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 0.5f, 2.0f, 8, 0.0f, -1.0f);
 }
 } // namespace rl::run
-
-

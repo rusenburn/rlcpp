@@ -143,7 +143,7 @@ void OthelloUI::handle_menu_events()
             players_.clear();
             auto player_g_duration = std::chrono::duration<int, std::milli>(1000);
             players_.push_back(get_default_g_player(state_ptr_.get(), 3, player_g_duration));
-            players_.push_back(get_human_player(state_ptr_.get()));
+            players_.push_back(get_random_rollout_player_ptr(state_ptr_.get(), 3, player_g_duration));
         }
     };
 }
