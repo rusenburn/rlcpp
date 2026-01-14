@@ -219,8 +219,11 @@ void MigoyugoUI::handle_menu_events()
             players_.clear();
             auto players_duration = std::chrono::milliseconds(5000);
 
-            players_.push_back(get_default_g_player(state_ptr_.get(), 2, players_duration));
+            // players_.push_back(get_default_g_player(state_ptr_.get(), 2, players_duration));
+            // players_.push_back(get_human_player(state_ptr_.get()));
+            
             players_.push_back(get_network_amcts2_player(state_ptr_.get(),3,players_duration,"migoyugo_strongest_400.pt"));
+            players_.push_back(get_network_amcts2_player(state_ptr_.get(),3,players_duration,"migoyugo_strongest_480.pt"));
         }
     }
 }
