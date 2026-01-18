@@ -3,12 +3,20 @@
 
 namespace rl::ui
 {
+const std::vector<std::string> PLAYER_TYPES = {"default_g_player", "human", "network"};
+
 MigoyugoUI::MigoyugoUI(int width, int height)
     : width_{ width }, height_{ height }, padding_{ 2 }, state_ptr_{ rl::games::MigoyugoState::initialize_state() },
     current_window_{ MigoyugoWindow::menu },
     players_{},
     paused_{ false },
-    pause_until_{ 0.0 }
+    pause_until_{ 0.0 },
+    selected_player_type_{ "default_g_player" },
+    duration_input_{ "5000" },
+    loadname_input_{ "" },
+    duration_input_focused_{ false },
+    loadname_input_focused_{ false },
+    player_type_index_{ 0 }
 
 {
     // Reserve space for coordinate labels: left margin for numbers, right/bottom for letters
@@ -62,13 +70,25 @@ void MigoyugoUI::reset_state()
 
 void MigoyugoUI::initialize_buttons()
 {
-    float button_width = 100;
-    float button_height = 20;
+    float button_width = 120;
+    float button_height = 25;
 
-    float top, left;
-    left = (width_ - button_width) / 2;
-    top = 20;
+    float top = 20;
+    float left = 20;
+
+    // Player type selector button
     buttons_.push_back(std::make_pair<Rectangle, Color>(Rectangle{ left, top, button_width, button_height }, GRAY));
+
+    // Add player button
+    top += button_height + 10;
+    buttons_.push_back(std::make_pair<Rectangle, Color>(Rectangle{ left, top, button_width, button_height }, GREEN));
+
+    // Clear players button
+    top += button_height + 10;
+    buttons_.push_back(std::make_pair<Rectangle, Color>(Rectangle{ left, top, button_width, button_height }, RED));
+
+    // Start game button (position will be calculated dynamically)
+    buttons_.push_back(std::make_pair<Rectangle, Color>(Rectangle{ left + button_width + 20, top, button_width, button_height }, BLUE));
 }
 
 void MigoyugoUI::draw_board()
@@ -161,8 +181,76 @@ void MigoyugoUI::draw_board()
 
 void MigoyugoUI::draw_menu()
 {
-    DrawRectangleRec(std::get<0>(buttons_.at(0)), std::get<1>(buttons_.at(0)));
-    DrawText("Start Game", std::get<0>(buttons_.at(0)).x + 10, std::get<0>(buttons_.at(0)).y + 5, 16, BLACK);
+    float left = 20;
+    float top = 20;
+    float button_width = 120;
+    float button_height = 25;
+    float input_width = 120;
+    float input_height = 25;
+
+    // Player Type label
+    DrawText("Player Type:", left, top - 5, 16, BLACK);
+    top += 20;
+
+    // Player type selector button
+    auto& player_type_button = buttons_[0];
+    DrawRectangleRec(std::get<0>(player_type_button), std::get<1>(player_type_button));
+    DrawText(selected_player_type_.c_str(), std::get<0>(player_type_button).x + 10, std::get<0>(player_type_button).y + 5, 14, BLACK);
+    top += button_height + 10;
+
+    // Duration label and input
+    DrawText("Duration (ms):", left, top - 5, 16, BLACK);
+    top += 20;
+    Rectangle duration_rect = {left, top, input_width, input_height};
+    DrawRectangleRec(duration_rect, LIGHTGRAY);
+    if (duration_input_focused_) DrawRectangleLinesEx(duration_rect, 2, BLUE);
+    DrawText(duration_input_.c_str(), left + 5, top + 5, 14, BLACK);
+    top += input_height + 10;
+
+    // Load name label and input (only for network)
+    if (selected_player_type_ == "network") {
+        DrawText("Load Name:", left, top - 5, 16, BLACK);
+        top += 20;
+        Rectangle loadname_rect = {left, top, input_width, input_height};
+        DrawRectangleRec(loadname_rect, LIGHTGRAY);
+        if (loadname_input_focused_) DrawRectangleLinesEx(loadname_rect, 2, BLUE);
+        DrawText(loadname_input_.c_str(), left + 5, top + 5, 14, BLACK);
+        top += input_height + 10;
+    }
+
+    // Update button positions dynamically
+    buttons_[1].first.y = top; // Add Player button
+    top += button_height + 10;
+    buttons_[2].first.y = top; // Clear Players button
+    top += button_height + 10;
+    buttons_[3].first.y = top; // Start Game button
+
+    // Add Player button
+    auto& add_button = buttons_[1];
+    DrawRectangleRec(std::get<0>(add_button), std::get<1>(add_button));
+    DrawText("Add Player", std::get<0>(add_button).x + 10, std::get<0>(add_button).y + 5, 14, BLACK);
+
+    // Clear Players button
+    auto& clear_button = buttons_[2];
+    DrawRectangleRec(std::get<0>(clear_button), std::get<1>(clear_button));
+    DrawText("Clear Players", std::get<0>(clear_button).x + 10, std::get<0>(clear_button).y + 5, 14, BLACK);
+
+    // Start Game button (only if players >= 2)
+    if (players_.size() >= 2) {
+        auto& start_button = buttons_[3];
+        DrawRectangleRec(std::get<0>(start_button), std::get<1>(start_button));
+        DrawText("Start Game", std::get<0>(start_button).x + 10, std::get<0>(start_button).y + 5, 14, BLACK);
+    }
+
+    // Draw players list
+    top += button_height + 20;
+    DrawText("Players:", left, top - 5, 16, BLACK);
+    top += 20;
+    for (size_t i = 0; i < players_.size(); ++i) {
+        std::string player_text = "Player " + std::to_string(i + 1) + ": " + players_[i]->name_;
+        DrawText(player_text.c_str(), left, top, 14, BLACK);
+        top += 20;
+    }
 }
 
 void MigoyugoUI::handle_board_events()
@@ -207,23 +295,89 @@ void MigoyugoUI::handle_board_events()
 
 void MigoyugoUI::handle_menu_events()
 {
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-    {
-        auto mouse_pos = GetMousePosition();
-        auto [rec, col] = buttons_.at(0);
-        auto is_button_pressed = CheckCollisionPointRec(mouse_pos, rec);
-        if (is_button_pressed)
-        {
+    Vector2 mouse_pos = GetMousePosition();
+    bool mouse_clicked = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+
+    // Handle text input focus
+    float left = 20;
+    float top = 20 + 20 + 25 + 10 + 20; // Position of duration input
+    Rectangle duration_rect = {left, top, 120, 25};
+    if (mouse_clicked && CheckCollisionPointRec(mouse_pos, duration_rect)) {
+        duration_input_focused_ = true;
+        loadname_input_focused_ = false;
+    } else if (selected_player_type_ == "network") {
+        float loadname_top = top + 25 + 10 + 20;
+        Rectangle loadname_rect = {left, loadname_top, 120, 25};
+        if (mouse_clicked && CheckCollisionPointRec(mouse_pos, loadname_rect)) {
+            duration_input_focused_ = false;
+            loadname_input_focused_ = true;
+        } else if (mouse_clicked) {
+            duration_input_focused_ = false;
+            loadname_input_focused_ = false;
+        }
+    } else if (mouse_clicked) {
+        duration_input_focused_ = false;
+        loadname_input_focused_ = false;
+    }
+
+    // Handle text input
+    if (duration_input_focused_ || loadname_input_focused_) {
+        int key = GetCharPressed();
+        while (key > 0) {
+            if ((key >= 32) && (key <= 125)) {
+                if (duration_input_focused_) {
+                    duration_input_ += (char)key;
+                } else if (loadname_input_focused_) {
+                    loadname_input_ += (char)key;
+                }
+            }
+            key = GetCharPressed();
+        }
+        if (IsKeyPressed(KEY_BACKSPACE)) {
+            if (duration_input_focused_ && !duration_input_.empty()) {
+                duration_input_.pop_back();
+            } else if (loadname_input_focused_ && !loadname_input_.empty()) {
+                loadname_input_.pop_back();
+            }
+        }
+    }
+
+    // Handle button clicks
+    if (mouse_clicked) {
+        // Player type selector
+        if (CheckCollisionPointRec(mouse_pos, std::get<0>(buttons_[0]))) {
+            player_type_index_ = (player_type_index_ + 1) % PLAYER_TYPES.size();
+            selected_player_type_ = PLAYER_TYPES[player_type_index_];
+        }
+        // Add player button
+        else if (CheckCollisionPointRec(mouse_pos, std::get<0>(buttons_[1]))) {
+            try {
+                int duration_ms = std::stoi(duration_input_);
+                auto duration = std::chrono::duration_cast<std::chrono::duration<int, std::milli>>(std::chrono::milliseconds(duration_ms));
+
+                if (selected_player_type_ == "default_g_player") {
+                    players_.push_back(get_default_g_player(state_ptr_.get(), 2, duration));
+                } else if (selected_player_type_ == "human") {
+                    players_.push_back(get_human_player(state_ptr_.get()));
+                } else if (selected_player_type_ == "network") {
+                    if (loadname_input_.empty()) {
+                        // Default load name if empty
+                        loadname_input_ = "migoyugo_strongest_480.pt";
+                    }
+                    players_.push_back(get_network_amcts2_player(state_ptr_.get(), 2, duration, loadname_input_));
+                }
+            } catch (const std::invalid_argument&) {
+                // Invalid duration, ignore
+            }
+        }
+        // Clear players button
+        else if (CheckCollisionPointRec(mouse_pos, std::get<0>(buttons_[2]))) {
+            players_.clear();
+        }
+        // Start game button (only if >=2 players)
+        else if (players_.size() >= 2 && CheckCollisionPointRec(mouse_pos, std::get<0>(buttons_[3]))) {
             reset_state();
             current_window_ = MigoyugoWindow::game;
-            players_.clear();
-            auto players_duration = std::chrono::milliseconds(5000);
-
-            // players_.push_back(get_default_g_player(state_ptr_.get(), 2, players_duration));
-            // players_.push_back(get_human_player(state_ptr_.get()));
-            
-            players_.push_back(get_network_amcts2_player(state_ptr_.get(),3,players_duration,"migoyugo_strongest_400.pt"));
-            players_.push_back(get_network_amcts2_player(state_ptr_.get(),3,players_duration,"migoyugo_strongest_480.pt"));
         }
     }
 }

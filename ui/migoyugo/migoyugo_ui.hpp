@@ -39,6 +39,14 @@ private:
     bool paused_;
     double pause_until_;
 
+    // Player selection UI variables
+    std::string selected_player_type_;
+    std::string duration_input_;
+    std::string loadname_input_;
+    bool duration_input_focused_;
+    bool loadname_input_focused_;
+    int player_type_index_;
+
     void initialize_buttons();
     void draw_board();
     void draw_menu();
