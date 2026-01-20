@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GPlayer WASM Demo - Migoyugo AI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .board { display: grid; grid-template-columns: repeat(8, 40px); gap: 2px; margin: 20px 0; }
+        .cell { width: 40px; height: 40px; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; }
+        .cell.player0 { background: #ffcccc; }
+        .cell.player1 { background: #ccccff; }
+        .cell.legal { background: #ffffcc; }
+        .cell.legal:hover { background: #ffeb3b; }
+        .controls { margin: 20px 0; }
+        button { margin: 5px; padding: 10px; }
+        .status { margin: 10px 0; font-weight: bold; }
+        .history { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>GPlayer WASM - Migoyugo AI Demo</h1>
+
+    <div class="status" id="status">Initializing WASM module...</div>
+
+    <div class="board" id="board"></div>
+
+    <div class="controls">
+        <button id="newGame">New Game</button>
+        <button id="aiMove">AI Move</button>
+        <button id="undo">Undo</button>
+    </div>
+
+    <div class="history">
+        <strong>Move History:</strong> <span id="moveHistory">[]</span>
+    </div>
+
+    <div>
+        <strong>AI Parameters:</strong><br>
+        <label>Simulations: <input type="number" id="simulations" value="1000" min="1" max="10000"></label><br>
+        <label>Time Limit (ms): <input type="number" id="timeLimit" value="2000" min="100" max="10000"></label><br>
+        <label>Min Ref Count: <input type="number" id="minRefCount" value="5" min="1" max="20"></label><br>
+        <label>Bias: <input type="number" id="bias" value="0.0" step="0.1" min="-1" max="1"></label><br>
+        <label><input type="checkbox" id="saveIllegal" checked> Save Illegal Actions</label>
+    </div>
+
+    <script>
+        let worker = null;
+        let actionsHistory = [];
+        let currentPlayer = 0;
+
+        // Convert action number (0-63) to chess coordinates (a1-h8)
+        function actionToCoords(action) {
+            const col = action % 8;
+            const row = 7 - Math.floor(action / 8); // Flip row (8 at top)
+            const colLetter = String.fromCharCode(97 + col); // a-h
+            const rowNumber = row + 1; // 1-8
+            return colLetter + rowNumber;
+        }
+
+        // Initialize board
+        const board = [];
+        for (let i = 0; i < 64; i++) {
+            board[i] = 0; // 0 = empty, 1 = player 0, 2 = player 1
+        }
+
+        function initWorker() {
+            if (typeof(Worker) === "undefined") {
+                document.getElementById('status').textContent = "Error: Web Workers not supported";
+                return;
+            }
+
+            worker = new Worker('worker.js');
+            worker.onmessage = handleWorkerMessage;
+            document.getElementById('status').textContent = "WASM module loading...";
+        }
+
+        function handleWorkerMessage(e) {
+            const { type, data } = e.data;
+
+            switch (type) {
+                case 'ready':
+                    document.getElementById('status').textContent = "Ready! Click AI Move to start.";
+                    break;
+                case 'move_selected':
+                    const action = data.action;
+                    actionsHistory.push(action);
+                    makeMove(action);
+                    updateDisplay();
+                    document.getElementById('status').textContent = "AI chose " + actionToCoords(action);
+                    break;
+                case 'error':
+                    document.getElementById('status').textContent = "Error: " + data.error;
+                    break;
+            }
+        }
+
+        function makeMove(action) {
+            // Allow placing on any cell (no illegal move checking)
+            board[action] = currentPlayer + 1;
+            currentPlayer = 1 - currentPlayer;
+            return true;
+        }
+
+        function updateDisplay() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+
+            for (let i = 0; i < 64; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+
+                if (board[i] === 1) {
+                    cell.className += ' player0';
+                    cell.textContent = 'X';
+                } else if (board[i] === 2) {
+                    cell.className += ' player1';
+                    cell.textContent = 'O';
+                } else {
+                    cell.className += ' legal';
+                    cell.textContent = actionToCoords(i);
+                }
+
+                // Make all cells clickable (can overwrite existing pieces)
+                cell.onclick = () => {
+                    if (makeMove(i)) {
+                        actionsHistory.push(i);
+                        updateDisplay();
+                    }
+                };
+
+                boardElement.appendChild(cell);
+            }
+
+            const coordsHistory = actionsHistory.map(actionToCoords);
+            document.getElementById('moveHistory').textContent = JSON.stringify(coordsHistory);
+        }
+
+        function newGame() {
+            actionsHistory = [];
+            currentPlayer = 0;
+            for (let i = 0; i < 64; i++) {
+                board[i] = 0;
+            }
+            updateDisplay();
+            document.getElementById('status').textContent = "New game started";
+        }
+
+        function aiMove() {
+            if (!worker) return;
+
+            const params = {
+                actionsHistory: [...actionsHistory],
+                numSimulations: parseInt(document.getElementById('simulations').value),
+                durationMs: parseInt(document.getElementById('timeLimit').value),
+                minRefCount: parseInt(document.getElementById('minRefCount').value),
+                bias: parseFloat(document.getElementById('bias').value),
+                saveIllegalActions: document.getElementById('saveIllegal').checked
+            };
+
+            document.getElementById('status').textContent = "AI thinking...";
+            worker.postMessage({ type: 'select_move', data: params });
+        }
+
+        function undo() {
+            if (actionsHistory.length > 0) {
+                const lastAction = actionsHistory.pop();
+                board[lastAction] = 0;
+                currentPlayer = 1 - currentPlayer;
+                updateDisplay();
+                document.getElementById('status').textContent = "Undid last move";
+            }
+        }
+
+        // Event listeners
+        document.getElementById('newGame').onclick = newGame;
+        document.getElementById('aiMove').onclick = aiMove;
+        document.getElementById('undo').onclick = undo;
+
+        // Initialize
+        initWorker();
+        updateDisplay();
+    </script>
+</body>
+</html>

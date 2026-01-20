@@ -3,30 +3,39 @@ cmake_minimum_required(VERSION 3.10.2 FATAL_ERROR)
 set(This players)
 project(${This})
 
-set(SourceFiles 
-    src/bandits/amcts2/amcts2.cpp
-    src/bandits/amcts2/amcts2_node.cpp
-    src/bandits/amcts2/concurrent_amcts.cpp
+# Exclude problematic sources for WASM builds (structured binding and reference issues)
+if(NOT EMSCRIPTEN)
+    set(EXCLUDED_SOURCES
+        # AMCTS2 sources (structured binding issues)
+        src/bandits/amcts2/amcts2.cpp
+        src/bandits/amcts2/amcts2_node.cpp
+        src/bandits/amcts2/concurrent_amcts.cpp
+        src/amcts_player.cpp
+        src/amcts.cpp
+        src/amcts2_player.cpp
+        src/concurrent_search_tree.cpp
+        src/evaluator_player.cpp
+        src/evaluator.cpp
+        # LM-MCTS sources (reference binding issues)
+        src/bandits/lm_mcts/lm_mcts_node.cpp
+        src/bandits/lm_mcts/lm_mcts.cpp
+        src/lm_mcts_player.cpp
+    )
+endif()
+
+set(SourceFiles
+    ${EXCLUDED_SOURCES}
     src/bandits/grave/g_node.cpp
     src/bandits/grave/g.cpp
     src/bandits/grave/grave_node.cpp
     src/bandits/grave/grave.cpp
-    src/bandits/lm_mcts/lm_mcts_node.cpp
-    src/bandits/lm_mcts/lm_mcts.cpp
     src/bandits/mcrave/mcrave.cpp
     src/bandits/mcrave/mcrave_node.cpp
     src/bandits/uct/uct_node.cpp
     src/bandits/uct/uct.cpp
-    src/amcts_player.cpp
-    src/amcts.cpp
-    src/amcts2_player.cpp
-    src/concurrent_search_tree.cpp
-    src/evaluator_player.cpp
-    src/evaluator.cpp
     src/grave_player.cpp
     src/g_player.cpp
     src/human_player.cpp
-    src/lm_mcts_player.cpp
     src/mcrave_player.cpp
     src/mcts_player.cpp
     src/mcts.cpp
