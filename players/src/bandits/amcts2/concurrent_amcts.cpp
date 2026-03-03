@@ -22,7 +22,7 @@ ConcurrentAmcts::~ConcurrentAmcts() = default;
 std::vector<float> ConcurrentAmcts::search(const rl::common::IState* state_ptr, int minimum_no_simulations, std::chrono::duration<int, std::milli> minimum_duration)
 {
     std::vector<const rl::common::IState*> state_ptrs = { {state_ptr} };
-    auto& [probs, vs] = search_multiple(state_ptrs, minimum_no_simulations, minimum_duration);
+    auto [probs, vs] = search_multiple(state_ptrs, minimum_no_simulations, minimum_duration);
     return probs.at(0);
 }
 
@@ -127,7 +127,7 @@ std::pair<std::vector<std::vector<float>>, std::vector<float>> ConcurrentAmcts::
             trees_evaluations.push_back(std::make_tuple<std::vector<float>, std::vector<float>>(
                 std::vector<float>(), std::vector<float>()));
         }
-        auto& [probs, vs] = evaluator_ptr_->evaluate(rollout_states);
+        auto [probs, vs] = evaluator_ptr_->evaluate(rollout_states);
         int n_rollouts = rollout_states.size();
         for (int rollout_id = 0; rollout_id < n_rollouts; rollout_id++)
         {
@@ -163,7 +163,7 @@ std::pair<std::vector<std::vector<float>>, std::vector<float>> ConcurrentAmcts::
         // check if state is forced
         if (vec_is_state_forced.at(tree_id))
         {
-            auto& mask = state_ptrs.at(tree_id)->actions_mask();
+            auto mask = state_ptrs.at(tree_id)->actions_mask();
         }
         else
         {

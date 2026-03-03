@@ -1,5 +1,6 @@
 #include "button.hpp"
 #include <sstream>
+#include <cstring>
 
 namespace rl::ui
 {
@@ -29,7 +30,7 @@ void Button::handle_events()
 void Button::draw()
 {
     char text[200];
-    strcpy(text, text_.c_str());
+    std::strcpy(text, text_.c_str());
     DrawRectangleRec(rect_, color_);
     int initial_font_size = 16;
     int font_size = initial_font_size + 2;

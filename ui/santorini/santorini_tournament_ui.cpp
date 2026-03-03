@@ -4,6 +4,7 @@
 #include <thread>
 #include <sstream>
 #include <iostream>
+#include <cstring>
 namespace rl::ui
 {
 SantoriniTournamentUI::SantoriniTournamentUI(int width, int height)
@@ -122,7 +123,8 @@ void SantoriniTournamentUI::on_state_changed(rl::common::MatchInfo match_info)
 
 	player1_ = match_info.player_1_index;
 	player2_ = match_info.player_2_index;
-	set_state_ptr(casted_state_ptr->clone_state());
+	std::unique_ptr<SantoriniState> cloned = casted_state_ptr->clone_state();
+	set_state_ptr(cloned);
 }
 
 void SantoriniTournamentUI::draw_board()
@@ -214,7 +216,7 @@ void SantoriniTournamentUI::draw_players_name()
 		ss << "[BLACK] " << players_.at(player1_)->name_;
 		ss << " vs [WHITE] " << players_.at(player2_)->name_;
 		auto a = ss.str();
-		strcpy(text, a.c_str());
+		std::strcpy(text, a.c_str());
 		SetWindowTitle(text);
 
 

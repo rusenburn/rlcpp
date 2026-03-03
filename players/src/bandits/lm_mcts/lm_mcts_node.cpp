@@ -30,7 +30,7 @@ LMMctsNode::~LMMctsNode()
     delta_wins_.shrink_to_fit();
 }
 
-std::vector<float> LMMctsNode::search_and_get_probs(std::unique_ptr<rl::common::IState>& state_ptr, std::unique_ptr<IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, float temperature)
+std::vector<float> LMMctsNode::search_and_get_probs(std::unique_ptr<rl::common::IState> state_ptr, std::unique_ptr<IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, float temperature)
 {
     if (is_terminal_.has_value() == false)
     {

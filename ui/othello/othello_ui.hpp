@@ -9,7 +9,7 @@
 #include <raylib.h>
 #include <players/players.hpp>
 #include <chrono>
-#include <../players_utils.hpp>
+#include "../players_utils.hpp"
 #include "../IGameui.hpp"
 
 namespace rl::ui

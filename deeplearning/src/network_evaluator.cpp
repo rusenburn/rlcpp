@@ -62,7 +62,7 @@ void NetworkEvaluator::evaluate(const std::vector<const rl::common::IState*>& st
         {
             observations.emplace_back(cell_value);
         }
-        for (auto& cell_value : state_ptr->actions_mask())
+        for (auto cell_value : state_ptr->actions_mask())
         {
             actions_mask.emplace_back(float(cell_value));
         }

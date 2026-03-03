@@ -473,7 +473,7 @@ std::unique_ptr<rl::players::IEvaluator> MatchConsole::get_random_rollout_evalua
 
 IPlayerPtr MatchConsole::get_default_uct_player(int n_sims, std::chrono::duration<int, std::milli> minimum_duration)
 {
-    return std::make_unique<rl::players::UctPlayer>(n_sims, minimum_duration, 1.0f, std::sqrtf(2.0f));
+    return std::make_unique<rl::players::UctPlayer>(n_sims, minimum_duration, 1.0f, std::sqrt(2.0f));
 }
 
 IPlayerPtr MatchConsole::get_default_g_player(int n_sims, std::chrono::duration<int, std::milli> minimum_duration)
@@ -494,6 +494,8 @@ IPlayerPtr MatchConsole::get_amcts2_player(std::unique_ptr<rl::players::IEvaluat
 {
     auto state_ptr = get_state_ptr();
     return std::make_unique<rl::players::Amcts2Player>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f, 8, 0.0f, -1.0f);
+
+    
 }
 IPlayerPtr MatchConsole::get_concurrent_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration)
 {

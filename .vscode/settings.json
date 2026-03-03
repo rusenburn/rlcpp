@@ -110,7 +110,7 @@
                     "long": "Disable optimizations - include debug information.",
                     "buildType": "Debug",
                     "settings":{
-                        "CMAKE_PREFIX_PATH" : "C:/libtorch-win-shared-with-deps-debug-2.2.1+cu118/libtorch"
+                        "CMAKE_PREFIX_PATH" : "~/lib/libtorch"
                     }
                 },
                 "release": {
@@ -118,7 +118,7 @@
                     "long": "Optimize for speed - exclude debug information.",
                     "buildType": "Release",
                     "settings":{
-                        "CMAKE_PREFIX_PATH" : "C:/libtorch-win-shared-with-deps-2.2.1+cu118/libtorch"
+                        "CMAKE_PREFIX_PATH" : "~/lib/libtorch"
                     }
                 },
                 "minsize": {

@@ -85,17 +85,17 @@ AlphaZero::AlphaZero(
     load_path_{ config.network_load_path.value_or("") },
     save_name_{ config.network_save_name.value_or("temp.pt") },
 
-    N_ASYNC{config.eval_async_steps},
-    N_VISITS{config.n_visits},
-    N_WINS{config.n_wins},
-    DIRICHLET_EPSILON{config.dirichlet_epsilon},
-    DIRICHLET_ALPHA{config.dirichlet_alpha},
-    N_TREES {config.n_subtrees},
-    N_SUB_TREE_ASYNC{config.n_subtree_async_steps},
-    N_COMPLETE_TO_END{ static_cast<int>(config.n_subtrees * config.complete_to_end_ratio)},
-    NO_RESIGN_THRESHOLD{config.no_resign_threshold},
-    MINIMUM_STEPS{config.no_resign_steps},
-    CPUCT{config.cpuct}
+    N_ASYNC{ config.eval_async_steps },
+    N_VISITS{ config.n_visits },
+    N_WINS{ config.n_wins },
+    DIRICHLET_EPSILON{ config.dirichlet_epsilon },
+    DIRICHLET_ALPHA{ config.dirichlet_alpha },
+    N_TREES{ config.n_subtrees },
+    N_SUB_TREE_ASYNC{ config.n_subtree_async_steps },
+    N_COMPLETE_TO_END{ static_cast<int>(config.n_subtrees * config.complete_to_end_ratio) },
+    NO_RESIGN_THRESHOLD{ config.no_resign_threshold },
+    MINIMUM_STEPS{ config.no_resign_steps },
+    CPUCT{ config.cpuct }
 {
     base_network_ptr_->to(dev_);
     tiny_network_ptr_->to(dev_);
@@ -225,15 +225,18 @@ int AlphaZero::choose_action(std::vector<float>& probs)
     return action;
 }
 
-void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, torch::optim::Optimizer& optimizer_ref, std::vector<float>& observations, std::vector<float>& probabilities, std::vector<float>& wdls)
+void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, torch::optim::Optimizer& optimizer_refs, std::vector<float>& observations, std::vector<float>& probabilities, std::vector<float>& wdls)
 {
+    torch::optim::AdamW optimizer(base_network_ptr_->parameters(), torch::optim::AdamWOptions{ lr_ }.eps(1e-8).weight_decay(1e-4));
+    torch::optim::AdamW& optimizer_ref = optimizer;
     std::array<int, 3> observation_shape = initial_state_ptr_->get_observation_shape();
     int channels = observation_shape.at(0);
     int rows = observation_shape.at(1);
     int cols = observation_shape.at(2);
     int n_examples = observations.size() / (channels * rows * cols);
     int batch_size = n_examples / n_batches_;
-    const int max_batch_size = batch_size;
+    // int batch_size = 64;
+    const int max_batch_size = 2048;
     // n_batches_ = n_examples / batch_size;
 
     std::vector<float> total_losses{};
@@ -313,7 +316,9 @@ void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, t
 
 torch::Tensor AlphaZero::cross_entropy_loss_(torch::Tensor& target, torch::Tensor& prediction)
 {
-    auto log_probs = prediction.log();
+    // testing safe prediction
+    auto safe_pred = prediction + EPS;
+    auto log_probs = safe_pred.log();
     auto loss = -(target * log_probs).sum(-1).mean();
     return loss;
 }
@@ -334,7 +339,7 @@ void AlphaZero::collect_data()
         {
             states_ptrs_vec.at(i) = states_ptrs_.at(i).get();
         }
-        auto& [trees_probs, trees_values] = concurrent_tree_ptr->search_multiple(states_ptrs_vec, n_sims_, std::chrono::milliseconds(0));
+        auto [trees_probs, trees_values] = concurrent_tree_ptr->search_multiple(states_ptrs_vec, n_sims_, std::chrono::milliseconds(0));
 
         for (int tree_id = 0;tree_id < current_n_trees;tree_id++)
         {

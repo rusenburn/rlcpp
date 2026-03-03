@@ -66,7 +66,7 @@ private:
     static torch::Tensor cross_entropy_loss_(torch::Tensor& target, torch::Tensor& prediction);
     void collect_data();
     void end_subtree(int subtree_id, int last_player, float result);
-    std::unique_ptr<players::ConcurrentAmcts> AlphaZero::get_new_concurrent_tree_ptr();
+    std::unique_ptr<players::ConcurrentAmcts> get_new_concurrent_tree_ptr();
     void initialize_subtrees();
 
 

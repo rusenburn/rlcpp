@@ -11,8 +11,8 @@ namespace rl::ui
 class PlayerInfoFull
 {
 public:
-    PlayerInfoFull::PlayerInfoFull(std::unique_ptr<rl::common::IPlayer> player_ptr, std::string name);
-    PlayerInfoFull::~PlayerInfoFull();
+    PlayerInfoFull(std::unique_ptr<rl::common::IPlayer> player_ptr, std::string name);
+    ~PlayerInfoFull();
     std::unique_ptr<rl::common::IPlayer> player_ptr_;
     std::string name_;
 };

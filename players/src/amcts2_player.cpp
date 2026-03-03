@@ -95,7 +95,7 @@ ConcurrentPlayer::~ConcurrentPlayer() = default;
 std::vector<int> ConcurrentPlayer::choose_actions(const std::vector<const rl::common::IState*>& states_ptrs_ref)
 {
     auto amcts = ConcurrentAmcts(n_game_actions_, evaluator_ptr_->copy(), cpuct_, temperature_, max_async_simulations_, dirichlet_epsilon_,dirichlet_alpha_,default_visits_, default_wins_);
-    auto& [all_probs, all_values] = amcts.search_multiple(states_ptrs_ref, minimum_simulations_, duration_in_millis_);
+    auto [all_probs, all_values] = amcts.search_multiple(states_ptrs_ref, minimum_simulations_, duration_in_millis_);
     const int n_states = states_ptrs_ref.size();
     std::vector<int> actions{};
     for (int i = 0;i < n_states;i++)

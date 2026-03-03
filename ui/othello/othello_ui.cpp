@@ -4,6 +4,7 @@
 #include <players/random_rollout_evaluator.hpp>
 #include <sstream>
 #include <iostream>
+#include <cstring>
 namespace rl::ui
 {
 void OthelloUI::initialize_buttons()
@@ -78,7 +79,7 @@ void OthelloUI::draw_score()
     auto [player_1_score, player_2_score] = get_scores();
     ss << player_1_score << " : " << player_2_score;
     std::string a = ss.str();
-    strcpy(text, a.c_str());
+    std::strcpy(text, a.c_str());
     DrawText(text, left, top, 20, WHITE);
 }
 

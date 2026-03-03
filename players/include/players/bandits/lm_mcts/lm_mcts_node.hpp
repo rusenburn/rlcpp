@@ -14,7 +14,7 @@ class LMMctsNode
 public:
     LMMctsNode(int n_game_actions, float cpuct);
     ~LMMctsNode();
-    std::vector<float> search_and_get_probs(std::unique_ptr<rl::common::IState>& state_ptr, std::unique_ptr<IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, float temperature);
+    std::vector<float> search_and_get_probs(std::unique_ptr<rl::common::IState> state_ptr, std::unique_ptr<IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, float temperature);
 
 private:
     int n_game_actions_;

@@ -69,7 +69,7 @@ std::vector<float> apply_temperature(const std::vector<float>& probs_ref_out, fl
     return probs_with_temp;
 }
 
-std::vector<float> rl::common::utils::get_dirichlet_noise(const int n_actions, const float alpha, std::mt19937& engine)
+std::vector<float> get_dirichlet_noise(const int n_actions, const float alpha, std::mt19937& engine)
 {
     std::vector<float> output;
     output.reserve(n_actions);

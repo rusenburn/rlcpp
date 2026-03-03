@@ -21,4 +21,6 @@ if(NOT EMSCRIPTEN)
     add_subdirectory(ui)
 endif()
 
-add_subdirectory(wasm)
+if (EMSCRIPTEN)
+    add_subdirectory(wasm)
+endif()

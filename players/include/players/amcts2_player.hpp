@@ -60,7 +60,7 @@ private:
     float default_visits_;
     float default_wins_;
 public:
-    ConcurrentPlayer::ConcurrentPlayer(
+    ConcurrentPlayer(
         int n_game_actions,
         std::unique_ptr<IEvaluator> evaluator_ptr,
         int minimum_simulations,
@@ -73,7 +73,7 @@ public:
         float default_visits = 1.0f,
         float default_wins = -1.0f
     );
-    ConcurrentPlayer::~ConcurrentPlayer()override;
+    ~ConcurrentPlayer()override;
     std::vector<int> choose_actions(const std::vector<const rl::common::IState*>& states_ptrs_ref)override;
     int choose_action(const std::unique_ptr<rl::common::IState>& state_ptr);
 };
