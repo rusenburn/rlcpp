@@ -84,90 +84,75 @@ std::string get_coord(int id) {
 }
 
 void AnalyzerConsole::get_actions(const std::vector<int>& actions) {
-
-    auto state_ptr = get_state_ptr(); // Initial state
+    auto state_ptr = get_state_ptr();
     auto network_ptr = get_network_ptr(n_filters, fc_dims, blocks, load_name);
     auto evaluator_ptr = get_network_evaluator_ptr(network_ptr);
 
-    // Initialize AMCTS
     rl::players::ConcurrentAmcts amcts(
         state_ptr->get_n_actions(),
         std::move(evaluator_ptr->copy()),
         2.0f, 1.0f, 8, 0.0f, -1.0f, 1.0f, -1.0f
     );
 
-    // This vector will hold the actual objects to keep them in memory
     std::vector<std::unique_ptr<rl::common::IState>> history;
-    // This vector will hold the raw pointers for search_multiple
     std::vector<const rl::common::IState*> state_ptrs_to_search{};
-
-    std::cout << "\n--- Stepping through " << actions.size() << " Actions ---" << std::endl;
 
     for (int action : actions) {
         if (!state_ptr->is_terminal()) {
-            // 1. Move the current state into our history to keep it alive
             history.push_back(state_ptr->clone());
-
-            // 2. Add the raw pointer from the cloned state to our search list
             state_ptrs_to_search.push_back(history.back().get());
-
-            // 3. Step to the next state
             state_ptr = state_ptr->step(action);
-            std::cout << action << " ";
-        }
-        else {
-            std::cout << "(" << action << " skipped: Terminal) ";
         }
     }
 
-    // Call search_multiple with the full list of states encountered
-    auto d = duration;
-    auto [all_probs, all_v] = amcts.search_multiple(state_ptrs_to_search, 1, d);
+    auto [all_probs, all_v] = amcts.search_multiple(state_ptrs_to_search, 1, duration);
 
-    // // Loop through the values (all_v) and print them 1 by 1
-    std::cout << "\n--- Search Results (Win Values) ---" << std::endl;
-    // for (size_t i = 0; i < all_v.size(); ++i) {
-    //     // Output formatting: Index starts at 0 (Initial State)
-    //     std::cout << "State " << i << " Value: " << static_cast<int>( all_v[i] *100) << std::endl;
-    // }
-
-    // std::cout << "-----------------------------------" << std::endl;
+    // Header logic
+    std::cout << "\n" << std::left << std::setw(4) << "#" 
+              << " | " << std::setw(6) << "STATE" 
+              << " | " << std::setw(4) << "PLY" 
+              << " | " << std::setw(7) << "MOVE %" 
+              << " | TOP MOVES" << std::endl;
 
     for (size_t i = 0; i < all_v.size(); ++i) {
-        int step = (i / 2) + 1;
-        // 1. Get the Value for this state
-        float state_val = all_v[i];
-        int action = actions.at(i);
+        int turn_num = (i / 2) + 1;
+        char side = (i % 2 == 0 ? 'W' : 'B');
+        
+        // 1. Format Turn string (e.g., "1W")
+        std::string turn_str = std::to_string(turn_num) + side;
 
-        // 2. Filter and collect only actions with prob > 0
+        // 2. Relative Value (Relative to current player)
+        float state_val = all_v[i] * 100 * (i % 2 == 0 ? 1 : -1);
+
+        // 3. Move probability
+        int played_action = actions.at(i);
+        float move_prob = all_probs[i][played_action] * 100;
+
+        // 4. Collect and Sort Top Moves
         const std::vector<float>& probs = all_probs[i];
         std::vector<std::pair<int, float>> valid_moves;
-
         for (int j = 0; j < (int)probs.size(); ++j) {
-            if (probs[j] > 1e-6f) { // Use a small epsilon instead of 0
+            if (probs[j] > 1e-6f) { 
                 valid_moves.push_back({ j, probs[j] });
             }
         }
+        std::sort(valid_moves.begin(), valid_moves.end(), 
+                  [](const auto& a, const auto& b) { return a.second > b.second; });
 
-        // 3. Sort by probability (Descending)
-        std::sort(valid_moves.begin(), valid_moves.end(), [](const auto& a, const auto& b) {
-            return a.second > b.second;
-            });
+        // Print Main Row
+        std::cout << std::left << std::setw(4) << turn_str << " | "
+                  << std::right << std::fixed << std::setprecision(2) << std::setw(6) << state_val << " | "
+                  << std::left << std::setw(4) << get_coord(played_action) << " | "
+                  << std::right << std::setw(5) << move_prob << "%  | ";
 
-        // 4. Print results (State Value + Top Moves)
-        std::cout << "Turn " << step << (i % 2 == 0 ? " White" : " Black") << " Val: " << (state_val * 100 * (i % 2 == 0 ? 1 : -1)) << " Played: " << get_coord(action) << " Prob: " << (probs.at(action) * 100) << "%" << std::endl;
-
-        // Take Top 5 or whatever is available
+        // Print Top Moves as a comma-separated list
         size_t limit = std::min<size_t>(5, valid_moves.size());
         for (size_t k = 0; k < limit; ++k) {
-            int action_id = valid_moves[k].first;
-            float probability = valid_moves[k].second;
-
-            // Use the function here to show "e4" instead of "28"
-            std::cout << "  Move: " << get_coord(action_id)
-                << " (ID: " << action_id << ")"
-                << " Prob: " << (probability * 100) << "%" << std::endl;
+            std::cout << get_coord(valid_moves[k].first) 
+                      << " (" << std::fixed << std::setprecision(2) << (valid_moves[k].second * 100) << "%)"
+                      << (k == limit - 1 ? "" : ", ");
         }
+        std::cout << std::endl;
     }
 }
 
