@@ -41,11 +41,11 @@ private:
     IStatePtr get_state_ptr();
     INetworkPtr get_network_ptr(int filters, int fc_dims, int blocks, const std::string& load_name);
     std::unique_ptr<rl::players::IEvaluator> get_network_evaluator_ptr(INetworkPtr& network_ptr);
-    std::chrono::duration<int, std::milli> duration{ 25000 };
+    std::chrono::duration<int, std::milli> duration_{ 120000 };
     int n_filters{ 128 };
     int fc_dims{ 512 };
     int blocks{ 5 };
-    std::string load_name{ "migoyugo_strongest_480.pt" };
+    std::string load_name{ "migoyugo_strongest_900.pt" };
 };
 } // namespace rl::run
 

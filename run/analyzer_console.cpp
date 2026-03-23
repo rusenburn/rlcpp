@@ -105,7 +105,7 @@ void AnalyzerConsole::get_actions(const std::vector<int>& actions) {
         }
     }
 
-    auto [all_probs, all_v] = amcts.search_multiple(state_ptrs_to_search, 1, duration);
+    auto [all_probs, all_v] = amcts.search_multiple(state_ptrs_to_search, 5000, duration_);
 
     // Header logic
     std::cout << "\n" << std::left << std::setw(4) << "#" 

@@ -174,9 +174,12 @@ void AlphaZero::train()
         }
 
         std::cout << "Training phase using " << n_examples << " examples..." << std::endl;
-
+        auto training_start = std::chrono::high_resolution_clock::now();
         train_network(base_network_ptr_, optimizer, all_observations_, all_probabilities_, all_wdls_);
-
+        auto training_end = std::chrono::high_resolution_clock::now();
+        auto training_duration = training_end - training_start;
+        auto training_duration_in_seconds = training_duration / std::chrono::seconds(1);
+        std::cout << "Training Phase Ended : took" << training_duration_in_seconds << " s" << std::endl;
         iteration++;
 
         if (iteration % 20 == 0 /*|| iteration == 1*/ || iteration == n_iterations_)
@@ -225,17 +228,18 @@ int AlphaZero::choose_action(std::vector<float>& probs)
     return action;
 }
 
-void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, torch::optim::Optimizer& optimizer_refs, std::vector<float>& observations, std::vector<float>& probabilities, std::vector<float>& wdls)
+void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, torch::optim::Optimizer& optimizer_ref, std::vector<float>& observations, std::vector<float>& probabilities, std::vector<float>& wdls)
 {
-    torch::optim::AdamW optimizer(base_network_ptr_->parameters(), torch::optim::AdamWOptions{ lr_ }.eps(1e-8).weight_decay(1e-4));
-    torch::optim::AdamW& optimizer_ref = optimizer;
+    // torch::optim::AdamW optimizer(base_network_ptr_->parameters(), torch::optim::AdamWOptions{ lr_ }.eps(1e-8).weight_decay(1e-4));
+    // torch::optim::SGD optimizer(base_network_ptr_->parameters(), torch::optim::SGDOptions{ lr_ }.momentum(0.9).dampening(0.9).weight_decay(1e-4));
+    // auto& optimizer_ref = optimizer;
     std::array<int, 3> observation_shape = initial_state_ptr_->get_observation_shape();
     int channels = observation_shape.at(0);
     int rows = observation_shape.at(1);
     int cols = observation_shape.at(2);
     int n_examples = observations.size() / (channels * rows * cols);
     int batch_size = n_examples / n_batches_;
-    // int batch_size = 64;
+    // batch_size = 64;
     const int max_batch_size = 2048;
     // n_batches_ = n_examples / batch_size;
 
@@ -252,6 +256,11 @@ void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, t
     probabilities_tensor = probabilities_tensor / probabilities_tensor.sum(-1, true);
     wdl_tensor = wdl_tensor + EPS;
     wdl_tensor = wdl_tensor / wdl_tensor.sum(-1, true);
+
+    bool nan_found_in_obs = false;
+    bool nan_found_in_pred_probs = false;
+    bool nan_found_in_pred_wdls = false;
+    bool nan_found_in_loss = false;
 
     for (int epoch{ 0 }; epoch < n_epoches_; epoch++)
     {
@@ -276,6 +285,12 @@ void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, t
             torch::Tensor filter_2 = torch::any(torch::isnan(predicted_wdls), -1) == 0;
             torch::Tensor filter_3 = torch::any(torch::isnan(target_wdl_batch), -1) == 0;
 
+            if (!nan_found_in_pred_wdls && torch::any(torch::isnan(predicted_wdls)).item<bool>())
+                nan_found_in_pred_wdls = true;
+
+
+            if (!nan_found_in_pred_probs && torch::any(torch::isnan(predicted_probs)).item<bool>())
+                nan_found_in_pred_probs = true;
             torch::Tensor filter = filter_0 * filter_1 * filter_2 * filter_3;
 
             predicted_probs = predicted_probs.index({ filter });
@@ -289,6 +304,10 @@ void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, t
             torch::Tensor total_loss = actor_loss + critic_loss * critic_ceof_;
             optimizer_ref.zero_grad();
 
+            if (!nan_found_in_loss && torch::any(torch::isnan(total_loss)).item<bool>())
+            {
+                nan_found_in_loss = true;
+            }
             total_loss.backward();
 
             torch::nn::utils::clip_grad_value_(network_ptr->parameters(), 10000);
@@ -298,6 +317,7 @@ void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, t
             actor_losses.push_back(actor_loss.detach().cpu().item<float>());
             critic_losses.push_back(critic_loss.detach().cpu().item<float>());
             total_losses.push_back(total_loss.detach().cpu().item<float>());
+
         }
     }
     float actor_sum = 0;
@@ -312,6 +332,14 @@ void AlphaZero::train_network(std::unique_ptr<IAlphazeroNetwork>& network_ptr, t
     std::cout << "Actor Loss = " << actor_sum / actor_losses.size() << "\n";
     std::cout << "Critic Loss = " << critic_sum / critic_losses.size() << "\n";
     std::cout << "Total Loss = " << total_sum / total_losses.size() << "\n";
+    if (!nan_found_in_pred_probs && !nan_found_in_pred_wdls && !nan_found_in_loss) {
+        std::cout << "Clean Run: No NaNs detected." << std::endl;
+    }
+    else {
+        if (nan_found_in_pred_probs) std::cout << "[!] WARNING: NaNs detected in Predicted Probabilities." << std::endl;
+        if (nan_found_in_pred_wdls) std::cout << "[!] WARNING: NaNs detected in Predicted WDLs." << std::endl;
+        if (nan_found_in_loss)       std::cout << "[!] CRITICAL: NaNs detected in Total Loss (Check your Learning Rate)." << std::endl;
+    }
 }
 
 torch::Tensor AlphaZero::cross_entropy_loss_(torch::Tensor& target, torch::Tensor& prediction)

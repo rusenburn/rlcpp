@@ -10,20 +10,29 @@
 
 namespace rl::common
 {
-    class ConcurrentMatch
-    {
-        private:
-        std::unique_ptr<IState> initial_state_ptr_;
-        std::vector<IConcurrentPlayer*> players_ptrs_{};
+class ConcurrentMatch
+{
+private:
+    std::unique_ptr<IState> initial_state_ptr_;
+    std::vector<IConcurrentPlayer*> players_ptrs_{};
 
-        int n_sets_;
-        int batch_size_;
-        float play_sets();
-        public:
-        ConcurrentMatch(const std::unique_ptr<IState>& initial_state_ptr, IConcurrentPlayer* player_1_ptr, IConcurrentPlayer* player_2_ptr, int n_sets,int batch_size);
-        float start();
-        ~ConcurrentMatch();
-    };
+    int n_sets_;
+    int batch_size_;
+    float play_sets();
+
+    float ingame_p0_total_rewards_ = 0.0f;
+    int total_finished_games_ = 0;
+    bool track_ingame_stats_ = true; // Toggle as needed
+public:
+    ConcurrentMatch(const std::unique_ptr<IState>& initial_state_ptr, IConcurrentPlayer* player_1_ptr, IConcurrentPlayer* player_2_ptr, int n_sets, int batch_size);
+    float start();
+    ~ConcurrentMatch();
+
+    float get_ingame_p0_winrate() const {
+        if (total_finished_games_ == 0) return 0.0f;
+        return ingame_p0_total_rewards_ / static_cast<float>(total_finished_games_);
+    }
+};
 } // namespace rl::common
 
 #endif

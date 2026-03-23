@@ -516,7 +516,7 @@ float MigoyugoState::get_reward() const
     int opponent = 1 - player;
 
     int player_0_yugos = 0;
-    int player_1_yugos = 1;
+    int player_1_yugos = 0;
     int cell = 0;
     for (size_t row = 0; row < ROWS; row++)
     {
@@ -628,160 +628,208 @@ std::string MigoyugoState::to_short() const
     return cached_short_.value();
 }
 
-void MigoyugoState::get_symmetrical_obs_and_actions(std::vector<float> const& obs, std::vector<float> const& actions_distribution, std::vector<std::vector<float>>& out_syms, std::vector<std::vector<float>>& out_actions_distribution) const
+// void MigoyugoState::get_symmetrical_obs_and_actions(std::vector<float> const& obs, std::vector<float> const& actions_distribution, std::vector<std::vector<float>>& out_syms, std::vector<std::vector<float>>& out_actions_distribution) const
+// {
+//     if (obs.size() != CHANNELS * ROWS * COLS)
+//     {
+//         std::stringstream ss;
+//         ss << "get_symmetrical_obs_and_actions requires an observation with size of " << CHANNELS * ROWS * COLS;
+//         ss << " but a size of " << obs.size() << " was passed.";
+//         throw std::runtime_error(ss.str());
+//     }
+//     out_syms.clear();
+//     out_actions_distribution.clear();
+
+//     // add first sym
+//     out_syms.push_back({});
+//     std::vector<float>& first_obs = out_syms.at(0);
+//     first_obs.reserve(obs.size());
+//     for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+//     {
+//         float value = obs.at(miguyugo_syms::ROT90_OBS_SYM.at(i));
+//         first_obs.emplace_back(value);
+//     }
+
+//     // add first actions sym
+//     out_actions_distribution.push_back({});
+//     std::vector<float>& first_actions = out_actions_distribution.at(0);
+//     first_actions.reserve(N_ACTIONS);
+//     for (int i = 0; i < N_ACTIONS; i++)
+//     {
+//         float value = actions_distribution.at(miguyugo_syms::ROT90_ACTIONS_SYM.at(i));
+//         first_actions.emplace_back(value);
+//     }
+
+//     // add second sym
+//     out_syms.push_back({});
+//     std::vector<float>& second_obs = out_syms.at(1);
+//     second_obs.reserve(obs.size());
+//     for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+//     {
+//         float value = obs.at(miguyugo_syms::ROT180_OBS_SYM.at(i));
+//         second_obs.emplace_back(value);
+//     }
+
+//     // add second action sym
+//     out_actions_distribution.push_back({});
+//     std::vector<float>& second_actions = out_actions_distribution.at(1);
+//     second_actions.reserve(N_ACTIONS);
+//     for (int i = 0; i < N_ACTIONS; i++)
+//     {
+//         float value = actions_distribution.at(miguyugo_syms::ROT180_ACTIONS_SYM.at(i));
+//         second_actions.emplace_back(value);
+//     }
+
+//     // add third sym
+//     out_syms.push_back({});
+//     std::vector<float>& third_obs = out_syms.at(2);
+//     third_obs.reserve(obs.size());
+//     for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+//     {
+//         float value = obs.at(miguyugo_syms::ROT270_OBS_SYM.at(i));
+//         third_obs.emplace_back(value);
+//     }
+
+//     // add third action sym
+//     out_actions_distribution.push_back({});
+//     std::vector<float>& third_actions = out_actions_distribution.at(2);
+//     third_actions.reserve(N_ACTIONS);
+//     for (int i = 0; i < N_ACTIONS; i++)
+//     {
+//         float value = actions_distribution.at(miguyugo_syms::ROT270_ACTIONS_SYM.at(i));
+//         third_actions.emplace_back(value);
+//     }
+//     ///////////
+
+//     // add horizontal sym
+//     out_syms.push_back({});
+//     std::vector<float>& horizontal_obs = out_syms.at(3);
+//     horizontal_obs.reserve(obs.size());
+//     for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+//     {
+//         float value = obs.at(miguyugo_syms::FLIP_LR_OBS_SYM.at(i));
+//         horizontal_obs.emplace_back(value);
+//     }
+
+//     // add horizontal action sym
+//     out_actions_distribution.push_back({});
+//     std::vector<float>& horizontal_actions = out_actions_distribution.at(3);
+//     horizontal_actions.reserve(N_ACTIONS);
+//     for (int i = 0; i < N_ACTIONS; i++)
+//     {
+//         float value = actions_distribution.at(miguyugo_syms::FLIP_LR_ACTIONS_SYM.at(i));
+//         horizontal_actions.emplace_back(value);
+//     }
+
+//     // add vertical sym
+//     out_syms.push_back({});
+//     std::vector<float>& vertical_obs = out_syms.at(4);
+//     vertical_obs.reserve(obs.size());
+//     for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+//     {
+//         float value = obs.at(miguyugo_syms::FLIP_UD_OBS_SYM.at(i));
+//         vertical_obs.emplace_back(value);
+//     }
+
+//     // add vertical action sym
+//     out_actions_distribution.push_back({});
+//     std::vector<float>& vertical_actions = out_actions_distribution.at(4);
+//     vertical_actions.reserve(N_ACTIONS);
+//     for (int i = 0; i < N_ACTIONS; i++)
+//     {
+//         float value = actions_distribution.at(miguyugo_syms::FLIP_UD_ACTIONS_SYM.at(i));
+//         vertical_actions.emplace_back(value);
+//     }
+
+//     // add main diagonal sym
+//     out_syms.push_back({});
+//     std::vector<float>& main_diagonal_obs = out_syms.at(5);
+//     main_diagonal_obs.reserve(obs.size());
+//     for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+//     {
+//         float value = obs.at(miguyugo_syms::TRANSPOSE_OBS_SYM.at(i));
+//         main_diagonal_obs.emplace_back(value);
+//     }
+
+//     // add main diagonal action sym
+//     out_actions_distribution.push_back({});
+//     std::vector<float>& main_diagonal_actions = out_actions_distribution.at(5);
+//     main_diagonal_actions.reserve(N_ACTIONS);
+//     for (int i = 0; i < N_ACTIONS; i++)
+//     {
+//         float value = actions_distribution.at(miguyugo_syms::TRANSPOSE_ACTIONS_SYM.at(i));
+//         main_diagonal_actions.emplace_back(value);
+//     }
+
+//     // add anti diagonal sym
+//     out_syms.push_back({});
+//     std::vector<float>& anti_diagonal_obs = out_syms.at(6);
+//     anti_diagonal_obs.reserve(obs.size());
+//     for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
+//     {
+//         float value = obs.at(miguyugo_syms::ANTI_TRANSPOSE_OBS_SYM.at(i));
+//         anti_diagonal_obs.emplace_back(value);
+//     }
+
+//     // add anti diagonal action sym
+//     out_actions_distribution.push_back({});
+//     std::vector<float>& anti_diagonal_actions = out_actions_distribution.at(6);
+//     anti_diagonal_actions.reserve(N_ACTIONS);
+//     for (int i = 0; i < N_ACTIONS; i++)
+//     {
+//         float value = actions_distribution.at(miguyugo_syms::ANTI_TRANSPOSE_ACTIONS_SYM.at(i));
+//         anti_diagonal_actions.emplace_back(value);
+//     }
+// }
+
+void MigoyugoState::get_symmetrical_obs_and_actions(
+    std::vector<float> const& obs, 
+    std::vector<float> const& actions_distribution, 
+    std::vector<std::vector<float>>& out_syms, 
+    std::vector<std::vector<float>>& out_actions_distribution) const
 {
-    if (obs.size() != CHANNELS * ROWS * COLS)
+    const size_t obs_size = CHANNELS * ROWS * COLS;
+    if (obs.size() != obs_size)
     {
         std::stringstream ss;
-        ss << "get_symmetrical_obs_and_actions requires an observation with size of " << CHANNELS * ROWS * COLS;
+        ss << "get_symmetrical_obs_and_actions requires an observation with size of " << obs_size;
         ss << " but a size of " << obs.size() << " was passed.";
         throw std::runtime_error(ss.str());
     }
+
     out_syms.clear();
     out_actions_distribution.clear();
+    // We expect 7 symmetries
+    out_syms.reserve(7);
+    out_actions_distribution.reserve(7);
 
-    // add first sym
-    out_syms.push_back({});
-    std::vector<float>& first_obs = out_syms.at(0);
-    first_obs.reserve(obs.size());
-    for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
-    {
-        float value = obs.at(miguyugo_syms::FIRST_OBS_SYM.at(i));
-        first_obs.emplace_back(value);
-    }
+    // Helper lambda to map a vector using a symmetry array
+    auto apply_sym = [](const std::vector<float>& source, const auto& mapping_array) {
+        std::vector<float> result(mapping_array.size());
+        for (size_t i = 0; i < mapping_array.size(); ++i) {
+            // Using .at() on both for maximum safety as requested
+            result.at(i) = source.at(mapping_array.at(i));
+        }
+        return result;
+    };
 
-    // add first actions sym
-    out_actions_distribution.push_back({});
-    std::vector<float>& first_actions = out_actions_distribution.at(0);
-    first_actions.reserve(N_ACTIONS);
-    for (int i = 0; i < N_ACTIONS; i++)
-    {
-        float value = actions_distribution.at(miguyugo_syms::FIRST_ACTIONS_SYM.at(i));
-        first_actions.emplace_back(value);
-    }
+    // Define a helper macro or local function to bundle the additions
+    auto add_symmetry = [&](const auto& obs_map, const auto& act_map) {
+        out_syms.push_back(apply_sym(obs, obs_map));
+        out_actions_distribution.push_back(apply_sym(actions_distribution, act_map));
+    };
 
-    // add second sym
-    out_syms.push_back({});
-    std::vector<float>& second_obs = out_syms.at(1);
-    second_obs.reserve(obs.size());
-    for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
-    {
-        float value = obs.at(miguyugo_syms::SECOND_OBS_SYM.at(i));
-        second_obs.emplace_back(value);
-    }
+    // --- Apply all 7 symmetries ---
+    using namespace miguyugo_syms;
 
-    // add second action sym
-    out_actions_distribution.push_back({});
-    std::vector<float>& second_actions = out_actions_distribution.at(1);
-    second_actions.reserve(N_ACTIONS);
-    for (int i = 0; i < N_ACTIONS; i++)
-    {
-        float value = actions_distribution.at(miguyugo_syms::SECOND_ACTIONS_SYM.at(i));
-        second_actions.emplace_back(value);
-    }
-
-    // add third sym
-    out_syms.push_back({});
-    std::vector<float>& third_obs = out_syms.at(2);
-    third_obs.reserve(obs.size());
-    for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
-    {
-        float value = obs.at(miguyugo_syms::THIRD_OBS_SYM.at(i));
-        third_obs.emplace_back(value);
-    }
-
-    // add third action sym
-    out_actions_distribution.push_back({});
-    std::vector<float>& third_actions = out_actions_distribution.at(2);
-    third_actions.reserve(N_ACTIONS);
-    for (int i = 0; i < N_ACTIONS; i++)
-    {
-        float value = actions_distribution.at(miguyugo_syms::THIRD_ACTIONS_SYM.at(i));
-        third_actions.emplace_back(value);
-    }
-    ///////////
-
-    // add horizontal sym
-    out_syms.push_back({});
-    std::vector<float>& horizontal_obs = out_syms.at(3);
-    horizontal_obs.reserve(obs.size());
-    for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
-    {
-        float value = obs.at(miguyugo_syms::HORIZONTAL_OBS_SYM.at(i));
-        horizontal_obs.emplace_back(value);
-    }
-
-    // add horizontal action sym
-    out_actions_distribution.push_back({});
-    std::vector<float>& horizontal_actions = out_actions_distribution.at(3);
-    horizontal_actions.reserve(N_ACTIONS);
-    for (int i = 0; i < N_ACTIONS; i++)
-    {
-        float value = actions_distribution.at(miguyugo_syms::HORIZONTAL_ACTIONS_SYM.at(i));
-        horizontal_actions.emplace_back(value);
-    }
-
-    // add vertical sym
-    out_syms.push_back({});
-    std::vector<float>& vertical_obs = out_syms.at(4);
-    vertical_obs.reserve(obs.size());
-    for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
-    {
-        float value = obs.at(miguyugo_syms::VERTICAL_OBS_SYM.at(i));
-        vertical_obs.emplace_back(value);
-    }
-
-    // add vertical action sym
-    out_actions_distribution.push_back({});
-    std::vector<float>& vertical_actions = out_actions_distribution.at(4);
-    vertical_actions.reserve(N_ACTIONS);
-    for (int i = 0; i < N_ACTIONS; i++)
-    {
-        float value = actions_distribution.at(miguyugo_syms::VERTICAL_ACTIONS_SYM.at(i));
-        vertical_actions.emplace_back(value);
-    }
-
-    // add main diagonal sym
-    out_syms.push_back({});
-    std::vector<float>& main_diagonal_obs = out_syms.at(5);
-    main_diagonal_obs.reserve(obs.size());
-    for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
-    {
-        float value = obs.at(miguyugo_syms::MAIN_DIAGONAL_OBS_SYM.at(i));
-        main_diagonal_obs.emplace_back(value);
-    }
-
-    // add main diagonal action sym
-    out_actions_distribution.push_back({});
-    std::vector<float>& main_diagonal_actions = out_actions_distribution.at(5);
-    main_diagonal_actions.reserve(N_ACTIONS);
-    for (int i = 0; i < N_ACTIONS; i++)
-    {
-        float value = actions_distribution.at(miguyugo_syms::MAIN_DIAGONAL_ACTIONS_SYM.at(i));
-        main_diagonal_actions.emplace_back(value);
-    }
-
-    // add anti diagonal sym
-    out_syms.push_back({});
-    std::vector<float>& anti_diagonal_obs = out_syms.at(6);
-    anti_diagonal_obs.reserve(obs.size());
-    for (int i = 0; i < CHANNELS * ROWS * COLS; i++)
-    {
-        float value = obs.at(miguyugo_syms::ANTI_DIAGONAL_OBS_SYM.at(i));
-        anti_diagonal_obs.emplace_back(value);
-    }
-
-    // add anti diagonal action sym
-    out_actions_distribution.push_back({});
-    std::vector<float>& anti_diagonal_actions = out_actions_distribution.at(6);
-    anti_diagonal_actions.reserve(N_ACTIONS);
-    for (int i = 0; i < N_ACTIONS; i++)
-    {
-        float value = actions_distribution.at(miguyugo_syms::ANTI_DIAGONAL_ACTIONS_SYM.at(i));
-        anti_diagonal_actions.emplace_back(value);
-    }
+    add_symmetry(ROT90_OBS_SYM,          ROT90_ACTIONS_SYM);
+    add_symmetry(ROT180_OBS_SYM,         ROT180_ACTIONS_SYM);
+    add_symmetry(ROT270_OBS_SYM,         ROT270_ACTIONS_SYM);
+    add_symmetry(FLIP_LR_OBS_SYM,        FLIP_LR_ACTIONS_SYM);
+    add_symmetry(FLIP_UD_OBS_SYM,        FLIP_UD_ACTIONS_SYM);
+    add_symmetry(TRANSPOSE_OBS_SYM,      TRANSPOSE_ACTIONS_SYM);
+    add_symmetry(ANTI_TRANSPOSE_OBS_SYM, ANTI_TRANSPOSE_ACTIONS_SYM);
 }
-
 
 std::vector<float> MigoyugoState::get_observation() const
 {

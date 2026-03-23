@@ -124,20 +124,39 @@ float rl::common::ConcurrentMatch::play_sets()
             }
         }
 
+        // // TODO gemini tells me that there is a bug here 
+        // auto states_it = current_states.begin();
+        // auto is_swapped_it = current_are_players_swapped.begin();
+        // while (states_it != current_states.end())
+        // {
+        //     auto& a = *states_it;
+        //     if (a->is_terminal())
+        //     {
+        //         current_states.erase(states_it);
+        //         current_are_players_swapped.erase(is_swapped_it);
+        //     }
+        //     else
+        //     {
+        //         states_it++;
+        //         is_swapped_it++;
+        //     }
+        // }
+
         auto states_it = current_states.begin();
         auto is_swapped_it = current_are_players_swapped.begin();
+
         while (states_it != current_states.end())
         {
-            auto& a = *states_it;
-            if (a->is_terminal())
+            if ((*states_it)->is_terminal())
             {
-                current_states.erase(states_it);
-                current_are_players_swapped.erase(is_swapped_it);
+                // erase returns the iterator to the next element
+                states_it = current_states.erase(states_it);
+                is_swapped_it = current_are_players_swapped.erase(is_swapped_it);
             }
             else
             {
-                states_it++;
-                is_swapped_it++;
+                ++states_it;
+                ++is_swapped_it;
             }
         }
     }
