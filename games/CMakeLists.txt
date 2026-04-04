@@ -6,6 +6,7 @@ set(SourceFiles
     src/damma.cpp
     src/english_draughts.cpp
     src/gobblet_goblers.cpp
+    src/migoyugo_light.cpp
     src/migoyugo.cpp
     src/tictactoe.cpp
     src/othello.cpp

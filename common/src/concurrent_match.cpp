@@ -104,23 +104,46 @@ float rl::common::ConcurrentMatch::play_sets()
 
         }
 
-        for (int i = 0;i < current_states.size();i++)
+        // for (int i = 0;i < current_states.size();i++)
+        // {
+        //     auto& state_ptr = current_states.at(i);
+        //     if (state_ptr->is_terminal())
+        //     {
+        //         float reward = state_ptr->get_reward();
+        //         int ingame_player = state_ptr->player_turn();
+        //         bool is_swapped = current_are_players_swapped.at(i);
+
+        //         reward = ingame_player == 0 ? reward : -reward;
+        //         reward = is_swapped ? -reward : reward;
+        //         player_1_total_rewards += reward;
+        //         n_games_ended++;
+        //     }
+        // }
+
+        for (int i = 0; i < current_states.size(); i++)
         {
             auto& state_ptr = current_states.at(i);
             if (state_ptr->is_terminal())
             {
-                float reward = state_ptr->get_reward();
+                float raw_reward = state_ptr->get_reward(); // Usually 1 for win, -1 for loss
                 int ingame_player = state_ptr->player_turn();
                 bool is_swapped = current_are_players_swapped.at(i);
 
-                reward = ingame_player == 0 ? reward : -reward;
-                reward = is_swapped ? -reward : reward;
-                player_1_total_rewards += reward;
-                n_games_ended++;
+                // 1. Perspective of In-Game Player 0 (e.g., "White")
+                // If it's P1's turn and they got 'reward', P0 got '-reward'
+                float p0_ingame_reward = (ingame_player == 0) ? raw_reward : -raw_reward;
 
-                // current_states.erase(std::next(current_states.begin() + i));
-                // current_are_players_swapped.erase(std::next(current_are_players_swapped.begin() + i));
-                // i--;
+                if (track_ingame_stats_) {
+                    ingame_p0_total_rewards_ += p0_ingame_reward;
+                    total_finished_games_++;
+                }
+
+                // 2. Perspective of the "Outside" Player 1 (the first agent)
+                // If swapped, the agent's reward is the opposite of the in-game perspective
+                float agent_1_reward = is_swapped ? -p0_ingame_reward : p0_ingame_reward;
+
+                player_1_total_rewards += agent_1_reward;
+                n_games_ended++;
             }
         }
 

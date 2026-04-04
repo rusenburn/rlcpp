@@ -5,6 +5,7 @@
 #include "match_console.hpp"
 #include <players/players.hpp>
 #include <players/random_rollout_evaluator.hpp>
+#include <players/random_evaluator.hpp>
 #include <deeplearning/alphazero/networks/shared_res_nn.hpp>
 #include <deeplearning/alphazero/networks/tinynn.hpp>
 #include <games/tictactoe.hpp>
@@ -121,6 +122,7 @@ void MatchConsole::start_match()
     // std::function<void(std::unique_ptr<rl::common::IState>&)> fn = std::bind(&MatchConsole::render,*this,std::placeholders::_1);
     // observer_ = match.state_changed_event_.subscribe(fn);
 
+    
     std::cout << "Starting the match ..." << std::endl;
     auto [p_0_score, p_1_score] = match.start();
     float ratio = (p_0_score + n_sets_) / (2 * n_sets_);
@@ -358,6 +360,10 @@ IPlayerPtr MatchConsole::get_player(int player_type, int n_sims, std::chrono::du
         network_ptr = get_network_ptr(filters, fc_dims, blocks, load_name);
         evaluator_ptr = get_network_evaluator_ptr(network_ptr);
         return get_concurrent_player(evaluator_ptr, n_sims, minimum_duration);
+    case RADNOM_EVALUATOR_PLAYER:
+        evaluator_ptr = get_random_evaluator_ptr();
+        return get_mcts_player(evaluator_ptr, n_sims, minimum_duration);
+
     default:
         throw "";
         break;
@@ -453,6 +459,14 @@ std::unique_ptr<rl::players::IEvaluator> MatchConsole::get_network_evaluator_ptr
     return std::make_unique<rl::deeplearning::NetworkEvaluator>(network_ptr->copy(), state_ptr->get_n_actions(), state_ptr->get_observation_shape());
 }
 
+std::unique_ptr<rl::players::IEvaluator> MatchConsole::get_random_evaluator_ptr()
+{
+    auto state_ptr = get_state_ptr();
+    return std::make_unique<rl::players::RandomEvaluator>(state_ptr->get_n_actions());
+}
+
+
+
 IPlayerPtr MatchConsole::get_amcts_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration)
 {
     auto state_ptr = get_state_ptr();
@@ -495,7 +509,7 @@ IPlayerPtr MatchConsole::get_amcts2_player(std::unique_ptr<rl::players::IEvaluat
     auto state_ptr = get_state_ptr();
     return std::make_unique<rl::players::Amcts2Player>(state_ptr->get_n_actions(), evaluator_ptr->copy(), n_sims, minimum_duration, 1.0f, 2.0f, 8, 0.0f, -1.0f);
 
-    
+
 }
 IPlayerPtr MatchConsole::get_concurrent_player(std::unique_ptr<rl::players::IEvaluator>& evaluator_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration)
 {
@@ -517,6 +531,7 @@ int MatchConsole::pick_player_type()
     std::cout << "[9] Network MCTS CPU Player\n";
     std::cout << "[10] Network amcts2 player\n";
     std::cout << "[11] Network Concurrent player\n";
+    std::cout << "[12] Random Evaluator (not real)\n";
     std::cout << std::endl;
 
     int choice;
@@ -558,6 +573,10 @@ int MatchConsole::pick_player_type()
         break;
     case 11:
         return NETWORK_CONCURRENT_PLAYER;
+        break;
+
+    case 12:
+        return RADNOM_EVALUATOR_PLAYER;
         break;
     default:
         return -1;

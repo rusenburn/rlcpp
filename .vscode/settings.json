@@ -124,12 +124,18 @@
                 "minsize": {
                     "short": "MinSizeRel",
                     "long": "Optimize for smallest binary size - exclude debug information.",
-                    "buildType": "MinSizeRel"
+                    "buildType": "MinSizeRel",
+                    "settings":{
+                        "CMAKE_PREFIX_PATH" : "~/lib/libtorch"
+                    }
                 },
                 "reldeb": {
                     "short": "RelWithDebInfo",
                     "long": "Optimize for speed - include debug information.",
                     "buildType": "RelWithDebInfo",
+                    "settings":{
+                        "CMAKE_PREFIX_PATH" : "~/lib/libtorch"
+                    }
                 }
             }
         }

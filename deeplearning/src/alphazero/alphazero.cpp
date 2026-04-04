@@ -141,6 +141,7 @@ void AlphaZero::train()
     auto strongest = base_network_ptr_->deepcopy();
     strongest->to(dev_);
     torch::optim::AdamW optimizer(base_network_ptr_->parameters(), torch::optim::AdamWOptions{ lr_ }.eps(1e-8).weight_decay(1e-4));
+    // torch::optim::SGD optimizer(base_network_ptr_->parameters(), torch::optim::SGDOptions{ lr_ }.momentum(0.9).dampening(0.9).weight_decay(1e-4));
     auto observation_shape = initial_state_ptr_->get_observation_shape();
     int channels = observation_shape.at(0);
     int rows = observation_shape.at(1);

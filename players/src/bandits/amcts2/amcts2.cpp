@@ -86,7 +86,7 @@ std::vector<float> Amcts2::search(const rl::common::IState* state_ptr, int minim
     auto evaluations = evaluator_ptr_->evaluate(rollouts);
     evaluate_collected_states(evaluations);
     clear_rollout();
-    // std::cout << "Amcts2: " << simulations_count << std::endl;
+    std::cout << "Amcts2: " << simulations_count << std::endl;
     return get_probs();
 }
 

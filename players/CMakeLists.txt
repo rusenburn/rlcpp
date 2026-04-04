@@ -40,6 +40,7 @@ set(SourceFiles
     src/mcts_player.cpp
     src/mcts.cpp
     src/random_action_player.cpp
+    src/random_evaluator.cpp
     src/random_rollout_evaluator.cpp
     src/search_tree.cpp
     src/uct_player.cpp

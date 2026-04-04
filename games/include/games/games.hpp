@@ -4,3 +4,5 @@
 #include "walls.hpp"
 #include "santorini.hpp"
 #include "english_draughts.hpp"
+#include "gobblet_goblers.hpp"
+#include "migoyugo.hpp"

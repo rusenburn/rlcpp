@@ -60,6 +60,10 @@ void ConcurrentMatchConsole::start_match()
     auto p1_score_average = match.start();
     float ratio = static_cast<float>(p1_score_average + 1.0f) / (2.0f);
     std::cout << "Player 1 win ratio is " << ratio << std::endl;
+
+    std::cout << "1st Player inside game win ratio is " << match.get_ingame_p0_winrate() << std::endl;
+
+
 }
 
 void ConcurrentMatchConsole::print_current_settings()

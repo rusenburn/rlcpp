@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <iomanip>
 #include <iostream>
+#include <games/migoyugo_light.hpp>
 #include <games/migoyugo.hpp>
 #include <common/exceptions.hpp>
 
@@ -9,7 +10,7 @@
 namespace rl::games
 {
 
-MigoyugoState::MigoyugoState(std::array<std::array<int8_t, COLS>, ROWS> board, int player, int step, int last_action)
+MigoyugoLightState::MigoyugoLightState(std::array<std::array<int8_t, COLS>, ROWS> board, int player, int step, int last_action)
     : board_(board),
     current_player_(player),
     step_(step),
@@ -17,9 +18,9 @@ MigoyugoState::MigoyugoState(std::array<std::array<int8_t, COLS>, ROWS> board, i
 {
 }
 
-MigoyugoState::~MigoyugoState() = default;
+MigoyugoLightState::~MigoyugoLightState() = default;
 
-std::unique_ptr<MigoyugoState> MigoyugoState::initialize_state()
+std::unique_ptr<MigoyugoLightState> MigoyugoLightState::initialize_state()
 {
     std::array<std::array<int8_t, COLS>, ROWS> obs;
 
@@ -32,27 +33,27 @@ std::unique_ptr<MigoyugoState> MigoyugoState::initialize_state()
     }
 
     int player_0 = 0;
-    auto state_ptr = std::make_unique<MigoyugoState>(obs, player_0, 0, -1);
+    auto state_ptr = std::make_unique<MigoyugoLightState>(obs, player_0, 0, -1);
     return state_ptr;
 }
 
-std::unique_ptr<rl::common::IState> MigoyugoState::initialize()
+std::unique_ptr<rl::common::IState> MigoyugoLightState::initialize()
 {
     return initialize_state();
 }
 
 
-std::unique_ptr<rl::common::IState> MigoyugoState::reset() const
+std::unique_ptr<rl::common::IState> MigoyugoLightState::reset() const
 {
     return reset_state();
 }
-std::unique_ptr<MigoyugoState> MigoyugoState::reset_state() const
+std::unique_ptr<MigoyugoLightState> MigoyugoLightState::reset_state() const
 {
     return initialize_state();
 }
 
 
-std::unique_ptr<MigoyugoState> MigoyugoState::step_state(int action) const
+std::unique_ptr<MigoyugoLightState> MigoyugoLightState::step_state(int action) const
 {
     if (is_terminal())
     {
@@ -129,10 +130,128 @@ std::unique_ptr<MigoyugoState> MigoyugoState::step_state(int action) const
         new_board[row_id][col_id] = (current_player_ == 0) ? 1 : -1;
     }
 
-    return std::make_unique<MigoyugoState>(new_board, other, step_ + 1, action);
+    return std::make_unique<MigoyugoLightState>(new_board, other, step_ + 1, action);
 }
 
-void MigoyugoState::render() const
+
+std::unique_ptr<MigoyugoLightState> MigoyugoLightState::step_state_light(int action, NNUEUpdate& update) const
+{
+    if (is_terminal())
+    {
+        throw rl::common::SteppingTerminalStateException("Trying to step a terminal state");
+    }
+    auto am = actions_mask();
+    bool action_legality = am.at(action);
+    if (action_legality == false)
+    {
+        std::stringstream ss;
+        ss << "Trying to perform an illegal action of " << action;
+        throw rl::common::IllegalActionException(ss.str());
+    }
+
+    int player = current_player_;
+    int other = 1 - player;
+
+    std::array<std::array<int8_t, COLS>, ROWS> new_board(board_);
+
+    // turn action into (row,col) action
+    int row_id = action / COLS;
+    int col_id = action % COLS;
+
+    std::array<std::pair<int8_t, int8_t>, 12> change_buffer;
+
+    int change_count = 0;
+
+    bool creates_yugo = false;
+
+    constexpr std::array<std::array<std::pair<int, int>, 2>, 4> directions = { {
+   {{ {0, 1}, {0, -1} }},
+   {{ {1, 0}, {-1, 0} }},
+   {{ {1, 1}, {-1, -1} }},
+   {{ {1, -1}, {-1, 1} }}
+        } };
+
+
+    for (const auto& opposites : directions) // Use your constexpr directions array
+    {
+        int streak_len = 0;
+        // Check both sides of the axis
+        for (const auto& dir : opposites) {
+            streak_len += get_streak_count(row_id, col_id, dir.first, dir.second, current_player_);
+        }
+
+        if (streak_len == 3) {
+            creates_yugo = true;
+            // Record these cells to clear them later
+            for (const auto& dir : opposites) {
+                int r = row_id + dir.first;
+                int c = col_id + dir.second;
+                // Walk the streak and add to buffer
+                while (is_in_board(r, c) && (current_player_ == 0 ? board_[r][c] > 0 : board_[r][c] < 0)) {
+                    change_buffer[change_count++] = { static_cast<int8_t>(r), static_cast<int8_t>(c) };
+                    r += dir.first;
+                    c += dir.second;
+                }
+            }
+        }
+    }
+
+    auto get_feature_id = [](int r, int c, int8_t piece, int perspective) {
+        int square = r * 8 + c;
+        bool is_white = (piece > 0);
+        bool is_yugo = (std::abs(piece) == 2);
+
+        // Map piece to one of the 4 channels (64 features each)
+        // Perspective 0: White is "Current Player" (Channels 0,1)
+        // Perspective 1: Black is "Current Player" (Channels 0,1)
+        int channel;
+        if (perspective == 0) { // White's View
+            if (is_white) channel = is_yugo ? 1 : 0; // My Migo/Yugo
+            else          channel = is_yugo ? 3 : 2; // Enemy Migo/Yugo
+        }
+        else { // Black's View
+            if (!is_white) channel = is_yugo ? 1 : 0; // My Migo/Yugo
+            else           channel = is_yugo ? 3 : 2; // Enemy Migo/Yugo
+        }
+        return (channel * 64) + square;
+        };
+
+    if (creates_yugo) {
+        int8_t yugo_piece = (current_player_ == 0) ? 2 : -2;
+        new_board[row_id][col_id] = yugo_piece;
+
+        // 1. Record the Yugo being ADDED
+        // Perspective 0 (White) and 1 (Black)
+        update.white_added.push_back(get_feature_id(row_id, col_id, yugo_piece, 0));
+        update.black_added.push_back(get_feature_id(row_id, col_id, yugo_piece, 1));
+
+        // Clear the completed pieces
+        for (int i = 0; i < change_count; ++i) {
+            auto& cell = change_buffer[i];
+            int8_t val = new_board[cell.first][cell.second];
+
+            // Only clear if it's a Migo (1/-1), not a Yugo (2/-2)
+            if (val == 1 || val == -1) {
+                // 2. Record the Migo being REMOVED before we set the board to 0
+                update.white_removed.push_back(get_feature_id(cell.first, cell.second, val, 0));
+                update.black_removed.push_back(get_feature_id(cell.first, cell.second, val, 1));
+
+                new_board[cell.first][cell.second] = 0;
+            }
+        }
+    }
+    else {
+        int8_t migo_piece = (current_player_ == 0) ? 1 : -1;
+        new_board[row_id][col_id] = migo_piece;
+
+        // 3. Record the Migo being ADDED (Standard Move)
+        update.white_added.push_back(get_feature_id(row_id, col_id, migo_piece, 0));
+        update.black_added.push_back(get_feature_id(row_id, col_id, migo_piece, 1));
+    }
+
+    return std::make_unique<MigoyugoLightState>(new_board, other, step_ + 1, action);
+}
+void MigoyugoLightState::render() const
 {
     auto legal_actions = actions_mask();
     std::array<std::array<bool, COLS>, ROWS> legal_actions_2d{};
@@ -190,22 +309,22 @@ void MigoyugoState::render() const
 
     std::cout << "\nPlayer " << player_char << " to move" << std::endl;
 }
-std::unique_ptr<rl::common::IState> MigoyugoState::step(int action) const
+std::unique_ptr<rl::common::IState> MigoyugoLightState::step(int action) const
 {
     return step_state(action);
 }
 
-int MigoyugoState::get_n_actions()const
+int MigoyugoLightState::get_n_actions()const
 {
     return ROWS * COLS;
 }
 
-int MigoyugoState::player_turn() const
+int MigoyugoLightState::player_turn() const
 {
     return current_player_;
 }
 
-std::array<int, 3> MigoyugoState::get_observation_shape() const
+std::array<int, 3> MigoyugoLightState::get_observation_shape() const
 {
     return { CHANNELS, ROWS, COLS };
 }
@@ -213,13 +332,13 @@ std::array<int, 3> MigoyugoState::get_observation_shape() const
 
 
 
-bool MigoyugoState::is_in_board(int row, int col) const
+bool MigoyugoLightState::is_in_board(int row, int col) const
 {
     return row < ROWS && row >= 0 && col < COLS && col >= 0;
 }
 
 
-bool MigoyugoState::is_terminal() const {
+bool MigoyugoLightState::is_terminal() const {
     if (cached_is_terminal_.has_value())
     {
         return cached_is_terminal_.value();
@@ -243,7 +362,7 @@ bool MigoyugoState::is_terminal() const {
     return true;
 
 }
-bool MigoyugoState::has_legal_action()const {
+bool MigoyugoLightState::has_legal_action()const {
     auto am = actions_mask();
     for (bool is_legal : am)
     {
@@ -256,7 +375,7 @@ bool MigoyugoState::has_legal_action()const {
 }
 
 
-bool MigoyugoState::is_opponent_won()const
+bool MigoyugoLightState::is_opponent_won()const
 {
     const int player = current_player_;
     const int opponent = 1 - player;
@@ -303,7 +422,7 @@ bool MigoyugoState::is_opponent_won()const
     }
     return is_opponent_won;
 }
-bool MigoyugoState::check_row_winning(std::array<std::array<int8_t, COLS>, ROWS> const& opponent_yugos_board, int row, int col)const
+bool MigoyugoLightState::check_row_winning(std::array<std::array<int8_t, COLS>, ROWS> const& opponent_yugos_board, int row, int col)const
 {
     if (!is_in_board(row + 3, col))
     {
@@ -324,7 +443,7 @@ bool MigoyugoState::check_row_winning(std::array<std::array<int8_t, COLS>, ROWS>
 }
 
 
-bool MigoyugoState::check_col_winning(std::array<std::array<int8_t, COLS>, ROWS> const& opponent_yugos_board, int row, int col)const
+bool MigoyugoLightState::check_col_winning(std::array<std::array<int8_t, COLS>, ROWS> const& opponent_yugos_board, int row, int col)const
 {
     if (!is_in_board(row, col + 3))
     {
@@ -344,7 +463,7 @@ bool MigoyugoState::check_col_winning(std::array<std::array<int8_t, COLS>, ROWS>
     return false;
 }
 
-bool MigoyugoState::check_forward_diagonal_winning(std::array<std::array<int8_t, COLS>, ROWS> const& opponent_yugos_board, int row, int col)const
+bool MigoyugoLightState::check_forward_diagonal_winning(std::array<std::array<int8_t, COLS>, ROWS> const& opponent_yugos_board, int row, int col)const
 {
     if (!is_in_board(row + 3, col + 3))
     {
@@ -364,7 +483,7 @@ bool MigoyugoState::check_forward_diagonal_winning(std::array<std::array<int8_t,
 }
 
 
-bool MigoyugoState::check_backward_diagonal_winning(std::array<std::array<int8_t, COLS>, ROWS> const& opponent_yugos_board, int row, int col)const
+bool MigoyugoLightState::check_backward_diagonal_winning(std::array<std::array<int8_t, COLS>, ROWS> const& opponent_yugos_board, int row, int col)const
 {
     if (!is_in_board(row + 3, col - 3))
     {
@@ -384,7 +503,7 @@ bool MigoyugoState::check_backward_diagonal_winning(std::array<std::array<int8_t
 }
 
 
-// std::vector<bool> MigoyugoState::actions_mask() const
+// std::vector<bool> MigoyugoLightState::actions_mask() const
 // {
 //     if (cached_actions_masks_.size())
 //     {
@@ -439,7 +558,7 @@ bool MigoyugoState::check_backward_diagonal_winning(std::array<std::array<int8_t
 
 // }
 
-std::vector<bool> MigoyugoState::actions_mask() const
+std::vector<bool> MigoyugoLightState::actions_mask() const
 {
     if (!cached_actions_masks_.empty()) return cached_actions_masks_;
 
@@ -481,7 +600,7 @@ std::vector<bool> MigoyugoState::actions_mask() const
 }
 
 // This is the only streak helper you need in the class
-int MigoyugoState::get_streak_count(int row, int col, int row_dir, int col_dir, int player) const
+int MigoyugoLightState::get_streak_count(int row, int col, int row_dir, int col_dir, int player) const
 {
     int count = 0;
     row += row_dir;
@@ -506,7 +625,7 @@ int MigoyugoState::get_streak_count(int row, int col, int row_dir, int col_dir, 
 }
 
 
-float MigoyugoState::get_reward() const
+float MigoyugoLightState::get_reward() const
 {
     if (!is_terminal())
     {
@@ -572,24 +691,24 @@ float MigoyugoState::get_reward() const
     return cached_result_.value();
 }
 
-int MigoyugoState::encode_action(int row, int col)
+int MigoyugoLightState::encode_action(int row, int col)
 {
     int action = row * COLS + col;
     return action;
 }
 
 
-std::unique_ptr<MigoyugoState> MigoyugoState::clone_state() const
+std::unique_ptr<MigoyugoLightState> MigoyugoLightState::clone_state() const
 {
-    return std::unique_ptr<MigoyugoState>(new MigoyugoState(*this));
+    return std::unique_ptr<MigoyugoLightState>(new MigoyugoLightState(*this));
 }
 
-std::unique_ptr<rl::common::IState> MigoyugoState::clone() const
+std::unique_ptr<rl::common::IState> MigoyugoLightState::clone() const
 {
     return clone_state();
 }
 
-std::string MigoyugoState::to_short() const
+std::string MigoyugoLightState::to_short() const
 {
     if (cached_short_.has_value())
     {
@@ -646,7 +765,7 @@ std::string MigoyugoState::to_short() const
     return cached_short_.value();
 }
 
-void MigoyugoState::get_symmetrical_obs_and_actions(
+void MigoyugoLightState::get_symmetrical_obs_and_actions(
     std::vector<float> const& obs,
     std::vector<float> const& actions_distribution,
     std::vector<std::vector<float>>& out_syms,
@@ -695,7 +814,7 @@ void MigoyugoState::get_symmetrical_obs_and_actions(
     add_symmetry(ANTI_TRANSPOSE_OBS_SYM, ANTI_TRANSPOSE_ACTIONS_SYM);
 }
 
-std::vector<float> MigoyugoState::get_observation() const
+std::vector<float> MigoyugoLightState::get_observation() const
 {
     if (cached_observation_.size())
     {
@@ -768,7 +887,7 @@ std::vector<float> MigoyugoState::get_observation() const
     return true_obs;
 }
 
-int MigoyugoState::get_last_action()const {
+int MigoyugoLightState::get_last_action()const {
     return last_action_;
 }
 }

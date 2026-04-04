@@ -217,7 +217,7 @@ std::vector<float> MCTSNode::search_and_get_probs(std::unique_ptr<IEvaluator>& e
         simulation_count++;
     }
 
-    // std::cout << "MCTS " << simulation_count << std::endl;
+    std::cout << "MCTS " << simulation_count << std::endl;
     return get_probs(temperature);
 }
 
