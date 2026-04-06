@@ -4,6 +4,7 @@
 #include <deeplearning/network_evaluator.hpp>
 #include <filesystem>
 #include <players/random_rollout_evaluator.hpp>
+#include <nnue/nnue_player.hpp>
 #include <sstream>
 
 namespace rl::ui
@@ -168,5 +169,32 @@ std::unique_ptr<PlayerInfoFull> get_human_player(rl::common::IState* state_ptr)
 {
     auto player_ptr = std::make_unique<rl::players::HumanPlayer>();
     return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "Human");
+}
+
+std::unique_ptr<PlayerInfoFull> get_nnue_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration) {
+
+    const std::string folder_name = "../checkpoints";
+    std::filesystem::path folder(folder_name);
+    std::filesystem::path nnue_path = folder / "nnue_weights.bin";
+
+    NNUEModel nnue_model;
+
+    // Convert filesystem path to a C-string for fopen
+    FILE* f = fopen(nnue_path.string().c_str(), "rb");
+
+    if (f) {
+        size_t read_count = fread(&nnue_model, sizeof(NNUEModel), 1, f);
+        if (read_count != 1) {
+            // Handle partial read / error
+        }
+        fclose(f);
+    }
+    else {
+        // Handle file not found error
+        std::cerr << "Could not open model file at " << nnue_path << std::endl;
+    }
+    auto player_ptr = std::make_unique<rl::players::NNUEPlayer>(nnue_model, minimum_duration);
+    return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "NNUE");
+
 }
 } // namespace rl::ui::players_utils

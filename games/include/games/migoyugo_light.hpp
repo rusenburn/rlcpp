@@ -39,12 +39,14 @@ private:
   int step_;
   int last_action_;
   mutable std::vector<bool> cached_actions_masks_{};
+  mutable std::vector<int> cached_actions_masks_2_{};
   mutable std::optional<bool> cached_is_terminal_;
   mutable std::optional<float> cached_result_;
   mutable std::vector<float> cached_observation_{};
   mutable std::optional<std::string>cached_short_{};
 
   int get_streak_count(int row, int col, int row_dir, int col_dir, int player) const;
+  int get_yugo_streak_count(int row, int col, int row_dir, int col_dir, int player) const;
   bool is_in_board(int row, int col) const;
 
   bool is_opponent_won()const;
@@ -61,28 +63,31 @@ public:
   ~MigoyugoLightState() override;
   static std::unique_ptr<MigoyugoLightState> initialize_state();
   static std::unique_ptr<rl::common::IState> initialize();
+  static std::unique_ptr<MigoyugoLightState> from_short(const std::string& fen);
   std::unique_ptr<rl::common::IState> reset() const override;
   std::unique_ptr<MigoyugoLightState> reset_state() const;
   std::unique_ptr<rl::common::IState> step(int action) const override;
   std::unique_ptr<MigoyugoLightState> step_state(int action) const;
-  std::unique_ptr<MigoyugoLightState> step_state_light(int action,NNUEUpdate& update)const;
+  std::unique_ptr<MigoyugoLightState> step_state_light(int action, NNUEUpdate& update_out)const;
   void render() const override;
   bool is_terminal() const override;
   float get_reward() const override;
   std::vector<float> get_observation() const override;
+  void get_active_features(NNUEUpdate& update_out)const;
   std::string to_short() const override;
   std::array<int, 3> get_observation_shape() const override;
   int get_n_actions() const override;
   int player_turn() const override;
   std::vector<bool> actions_mask() const override;
+  std::vector<int> actions_mask_2() const;
+  std::string to_string_key() const;
 
   std::unique_ptr<MigoyugoLightState> clone_state() const;
   std::unique_ptr<rl::common::IState> clone() const override;
   void get_symmetrical_obs_and_actions(std::vector<float> const& obs, std::vector<float> const& actions_distribution, std::vector<std::vector<float>>& out_syms, std::vector<std::vector<float>>& out_actions_distribution) const override;
   static int encode_action(int row, int col);
   int get_last_action()const;
-
-
+  float calculate_feature_weight() const;
 };
 }
 

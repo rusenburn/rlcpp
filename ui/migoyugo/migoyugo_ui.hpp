@@ -36,6 +36,7 @@ private:
     std::vector<float> obs_;
     std::vector<bool> actions_legality_;
     std::vector<std::pair<Rectangle, Color>> buttons_;
+    std::vector<int> history_{};
     bool paused_;
     double pause_until_;
 

@@ -40,6 +40,7 @@ public:
     GNode(std::unique_ptr<IState> state_ptr, int amaf_min_ref_count, float bias, bool save_illegal_actions_amaf);
     ~GNode();
     int choose_best_action(const GNode* amaf_ptr);
+    float get_best_action_value(const GNode* amaf_ptr);
     std::pair<float, int> simulate_one(const GNode* amaf_ptr, std::vector<int>& player_0_actions, std::vector<int>& player_1_actions);
 };
 } // namespace rl::players

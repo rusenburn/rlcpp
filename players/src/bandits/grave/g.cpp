@@ -46,7 +46,15 @@ std::vector<float> G::search(const rl::common::IState* state_ptr, int minimum_no
     int action = root_node.choose_best_action(&root_node);
     std::vector<float> action_probs(n_game_actions_);
     action_probs[action] = 1.0f;
-    // std::cout << "G " << i << std::endl;
+    constexpr bool verbos = true;
+
+    if (verbos)
+    {
+        auto best_value = root_node.get_best_action_value(&root_node);
+        std::cout << "GValue: " << best_value << "\tGSims: " << i << std::endl;
+    }
+
+
     return action_probs;
 }
 } // namespace rl::players

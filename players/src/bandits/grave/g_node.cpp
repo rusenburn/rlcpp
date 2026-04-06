@@ -181,6 +181,37 @@ int GNode::choose_best_action(const GNode* amaf_ptr)
     return best_action;
 }
 
+
+float GNode::get_best_action_value(const GNode* amaf_ptr)
+{
+    int best_action = -1;
+    float best_value = -std::numeric_limits<float>::infinity();
+    for (int action = 0; action < n_game_actions_; action++)
+    {
+        if (actions_mask_[action] == false)
+            continue;
+
+        float w = wsa_[action];
+        float n = static_cast<float>(nsa_[action]) + 1e-8f;
+        float wa = current_player_ == 0 ? amaf_ptr->amaf_wsa_player_0_[action] : amaf_ptr->amaf_wsa_player_1_[action];
+        float na = static_cast<float>(current_player_ == 0 ? amaf_ptr->amaf_nsa_player_0_[action] : amaf_ptr->amaf_nsa_player_1_[action]) + 1e-8f;
+        float ba = na / (na + n + bias_ * na * n);
+        float amaf = wa / (na + 1e-8f);
+        float mean = w / (n + 1e-8f);
+        float value = (1.0f - ba) * mean + ba * amaf;
+        if (value > best_value)
+        {
+            best_value = value;
+            best_action = action;
+        }
+    }
+    if (best_action == -1)
+    {
+        throw rl::common::UnreachableCodeException("Best action of -1 in G-rave");
+    }
+    return best_value;
+}
+
 void GNode::update_amf(const std::pair<const float, const int>& playout_res, const std::vector<int>& player_0_actions_ref, const std::vector<int>& player_1_actions_ref)
 {
     float z = std::get<0>(playout_res);

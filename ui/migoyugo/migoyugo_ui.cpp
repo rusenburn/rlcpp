@@ -1,9 +1,10 @@
 #include "migoyugo_ui.hpp"
 #include <iostream>
+#include <sstream>
 
 namespace rl::ui
 {
-const std::vector<std::string> PLAYER_TYPES = {"default_g_player", "human", "network"};
+const std::vector<std::string> PLAYER_TYPES = { "default_g_player", "human", "network","nnue" };
 
 MigoyugoUI::MigoyugoUI(int width, int height)
     : width_{ width }, height_{ height }, padding_{ 2 }, state_ptr_{ rl::games::MigoyugoState::initialize_state() },
@@ -201,7 +202,7 @@ void MigoyugoUI::draw_menu()
     // Duration label and input
     DrawText("Duration (ms):", left, top - 5, 16, BLACK);
     top += 20;
-    Rectangle duration_rect = {left, top, input_width, input_height};
+    Rectangle duration_rect = { left, top, input_width, input_height };
     DrawRectangleRec(duration_rect, LIGHTGRAY);
     if (duration_input_focused_) DrawRectangleLinesEx(duration_rect, 2, BLUE);
     DrawText(duration_input_.c_str(), left + 5, top + 5, 14, BLACK);
@@ -211,7 +212,7 @@ void MigoyugoUI::draw_menu()
     if (selected_player_type_ == "network") {
         DrawText("Load Name:", left, top - 5, 16, BLACK);
         top += 20;
-        Rectangle loadname_rect = {left, top, input_width, input_height};
+        Rectangle loadname_rect = { left, top, input_width, input_height };
         DrawRectangleRec(loadname_rect, LIGHTGRAY);
         if (loadname_input_focused_) DrawRectangleLinesEx(loadname_rect, 2, BLUE);
         DrawText(loadname_input_.c_str(), left + 5, top + 5, 14, BLACK);
@@ -280,6 +281,12 @@ void MigoyugoUI::handle_board_events()
         {
             paused_ = true;
             pause_until_ = GetTime() + 5;
+            
+            std::cout << "Actions History: ";
+            for (int action : history_) {
+                std::cout << action << ' ';
+            }
+            std::cout << "-1\n";
         }
     }
     else
@@ -301,21 +308,24 @@ void MigoyugoUI::handle_menu_events()
     // Handle text input focus
     float left = 20;
     float top = 20 + 20 + 25 + 10 + 20; // Position of duration input
-    Rectangle duration_rect = {left, top, 120, 25};
+    Rectangle duration_rect = { left, top, 120, 25 };
     if (mouse_clicked && CheckCollisionPointRec(mouse_pos, duration_rect)) {
         duration_input_focused_ = true;
         loadname_input_focused_ = false;
-    } else if (selected_player_type_ == "network") {
+    }
+    else if (selected_player_type_ == "network") {
         float loadname_top = top + 25 + 10 + 20;
-        Rectangle loadname_rect = {left, loadname_top, 120, 25};
+        Rectangle loadname_rect = { left, loadname_top, 120, 25 };
         if (mouse_clicked && CheckCollisionPointRec(mouse_pos, loadname_rect)) {
             duration_input_focused_ = false;
             loadname_input_focused_ = true;
-        } else if (mouse_clicked) {
+        }
+        else if (mouse_clicked) {
             duration_input_focused_ = false;
             loadname_input_focused_ = false;
         }
-    } else if (mouse_clicked) {
+    }
+    else if (mouse_clicked) {
         duration_input_focused_ = false;
         loadname_input_focused_ = false;
     }
@@ -327,7 +337,8 @@ void MigoyugoUI::handle_menu_events()
             if ((key >= 32) && (key <= 125)) {
                 if (duration_input_focused_) {
                     duration_input_ += (char)key;
-                } else if (loadname_input_focused_) {
+                }
+                else if (loadname_input_focused_) {
                     loadname_input_ += (char)key;
                 }
             }
@@ -336,7 +347,8 @@ void MigoyugoUI::handle_menu_events()
         if (IsKeyPressed(KEY_BACKSPACE)) {
             if (duration_input_focused_ && !duration_input_.empty()) {
                 duration_input_.pop_back();
-            } else if (loadname_input_focused_ && !loadname_input_.empty()) {
+            }
+            else if (loadname_input_focused_ && !loadname_input_.empty()) {
                 loadname_input_.pop_back();
             }
         }
@@ -357,16 +369,22 @@ void MigoyugoUI::handle_menu_events()
 
                 if (selected_player_type_ == "default_g_player") {
                     players_.push_back(get_default_g_player(state_ptr_.get(), 2, duration));
-                } else if (selected_player_type_ == "human") {
+                }
+                else if (selected_player_type_ == "human") {
                     players_.push_back(get_human_player(state_ptr_.get()));
-                } else if (selected_player_type_ == "network") {
+                }
+                else if (selected_player_type_ == "network") {
                     if (loadname_input_.empty()) {
                         // Default load name if empty
                         loadname_input_ = "migoyugo_strongest_480.pt";
                     }
                     players_.push_back(get_network_amcts2_player(state_ptr_.get(), 2, duration, loadname_input_));
                 }
-            } catch (const std::invalid_argument&) {
+                else if (selected_player_type_ == "nnue") {
+                    players_.push_back(get_nnue_player(state_ptr_.get(), duration));
+                }
+            }
+            catch (const std::invalid_argument&) {
                 // Invalid duration, ignore
             }
         }
@@ -377,6 +395,7 @@ void MigoyugoUI::handle_menu_events()
         // Start game button (only if >=2 players)
         else if (players_.size() >= 2 && CheckCollisionPointRec(mouse_pos, std::get<0>(buttons_[3]))) {
             reset_state();
+            history_.clear();
             current_window_ = MigoyugoWindow::game;
         }
     }
@@ -387,6 +406,7 @@ void MigoyugoUI::perform_action(int action)
     auto actions_legality = state_ptr_->actions_mask();
     if (action < actions_legality.size() && actions_legality.at(action) && state_ptr_->is_terminal() == false)
     {
+        history_.push_back(action);
         set_state(state_ptr_->step_state(action));
     }
 }

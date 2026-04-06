@@ -38,6 +38,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     common
     players
     games
+    nnue
     deeplearning)
 target_include_directories(${PROJECT_NAME} PRIVATE
  raylib

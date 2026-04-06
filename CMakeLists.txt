@@ -13,6 +13,7 @@ add_subdirectory(external/abseil-cpp)
 add_subdirectory(common)
 add_subdirectory(games)
 add_subdirectory(players)
+add_subdirectory(nnue)
 
 # Only add components that require deep learning for non-WASM builds
 if(NOT EMSCRIPTEN)
