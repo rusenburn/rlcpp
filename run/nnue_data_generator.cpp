@@ -72,7 +72,10 @@ void NNUEDataGenerator::generate(const rl::common::IState& initial_state,
 
             // --- Terminal Reset ---
             if (states[i]->is_terminal()) {
-                states[i] = initial_state.reset();
+                float r2 = rl::common::get();
+                int depth = static_cast<int>(-std::log(1 - r2)) + 1;
+
+                states[i] = random_advance_state(initial_state, depth);
             }
         }
 
@@ -125,6 +128,50 @@ void NNUEDataGenerator::save_sample_binary(std::ofstream& out, float score, cons
     int16_t count = static_cast<int16_t>(active_ids.size());
     out.write(reinterpret_cast<const char*>(&count), sizeof(int16_t));
     out.write(reinterpret_cast<const char*>(active_ids.data()), count * sizeof(int16_t));
+}
+
+
+std::unique_ptr<rl::common::IState> NNUEDataGenerator::random_advance_state(
+    const rl::common::IState& initial_state,
+    int depth)
+{
+    while (true) {
+        auto state = initial_state.reset();
+
+        bool failed = false;
+
+        for (int s = 0; s < depth; ++s) {
+            auto mask = state->actions_mask();
+
+            std::vector<int> legal_actions;
+            for (int a = 0; a < mask.size(); ++a) {
+                if (mask[a]) {
+                    legal_actions.push_back(a);
+                }
+            }
+
+            if (legal_actions.empty()) {
+                failed = true;
+                break;
+            }
+
+            int idx = rl::common::get(0, (int)legal_actions.size());
+            int action = legal_actions[idx];
+
+            state = state->step(action);
+
+            // 🚨 If terminal → abort and retry whole process
+            if (state->is_terminal()) {
+                failed = true;
+                break;
+            }
+        }
+
+        // ✅ Only return if we successfully reached a non-terminal state
+        if (!failed) {
+            return state;
+        }
+    }
 }
 
 } // namespace rl::training

@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <players/random_rollout_evaluator.hpp>
 #include <nnue/nnue_player.hpp>
+#include <nnue/nnue_mcts_player.hpp>
 #include <sstream>
 
 namespace rl::ui
@@ -194,6 +195,34 @@ std::unique_ptr<PlayerInfoFull> get_nnue_player(rl::common::IState* state_ptr, s
         std::cerr << "Could not open model file at " << nnue_path << std::endl;
     }
     auto player_ptr = std::make_unique<rl::players::NNUEPlayer>(nnue_model, minimum_duration);
+    return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "NNUE");
+
+}
+
+
+std::unique_ptr<PlayerInfoFull> get_nnue_mcts_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration) {
+
+    const std::string folder_name = "../checkpoints";
+    std::filesystem::path folder(folder_name);
+    std::filesystem::path nnue_path = folder / "nnue_weights.bin";
+
+    NNUEModel nnue_model;
+
+    // Convert filesystem path to a C-string for fopen
+    FILE* f = fopen(nnue_path.string().c_str(), "rb");
+
+    if (f) {
+        size_t read_count = fread(&nnue_model, sizeof(NNUEModel), 1, f);
+        if (read_count != 1) {
+            // Handle partial read / error
+        }
+        fclose(f);
+    }
+    else {
+        // Handle file not found error
+        std::cerr << "Could not open model file at " << nnue_path << std::endl;
+    }
+    auto player_ptr = std::make_unique<rl::players::NNUEMctsPlayer>(nnue_model, state_ptr->get_n_actions(), 10, minimum_duration, 2.0f);
     return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "NNUE");
 
 }

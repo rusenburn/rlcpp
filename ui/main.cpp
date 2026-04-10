@@ -18,8 +18,8 @@ int main(int argc, char const* argv[])
     }
     Color GREY = { 29, 29, 29, 255 };
 
-    constexpr int WINDOW_W = 720;
-    constexpr int WINDOW_H = 720;
+    constexpr int WINDOW_W = 600;
+    constexpr int WINDOW_H = 600;
     constexpr int FPS = 12;
 
     // rl::ui::SantoriniTournamentUI ui{ WINDOW_W, WINDOW_H };

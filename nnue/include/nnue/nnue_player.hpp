@@ -9,6 +9,7 @@
 #include <chrono>
 #include <iostream>
 #include <cmath>
+#include <common/random.hpp>
 namespace rl::players {
 
 class NNUEPlayer : public rl::common::IPlayer {
@@ -17,6 +18,74 @@ public:
     NNUEPlayer(NNUEModel model, std::chrono::duration<int, std::milli> max_duration)
         : model_(model), max_duration_{ max_duration } {
     }
+
+    // int choose_action(const std::unique_ptr<rl::common::IState>& state_ptr) override {
+    //     auto start_time = std::chrono::high_resolution_clock::now();
+    //     auto light_state = rl::games::MigoyugoLightState::from_short(state_ptr->to_short());
+
+    //     // Initialize Accumulators (Only once per move)
+    //     std::array<int16_t, 256> acc_w, acc_b;
+    //     rl::games::NNUEUpdate initial_features;
+    //     light_state->get_active_features(initial_features);
+    //     for (int i = 0; i < 256; ++i) acc_w[i] = acc_b[i] = model_.l1_bias[i];
+    //     apply_update(acc_w, acc_b, initial_features);
+
+    //     float features_weight = light_state->calculate_feature_weight();
+    //     int best_move_global = -1;
+    //     time_up_ = false;
+    //     nodes_visited_ = 0;
+    //     float best_score_global = -1e9;
+    //     auto moves = light_state->actions_mask_2();
+    //     auto priority = light_state->detect_threats();
+    //     // --- ITERATIVE DEEPENING LOOP ---
+    //     for (int d = 1; d <= 100; ++d) {
+    //         float alpha = -1e9;
+    //         float beta = 1e9;
+    //         int best_move_at_this_depth = -1;
+    //         float best_score = -1e9;
+
+    //         // Root Search (special case of Alpha-Beta that tracks the move)
+    //         for (int action = 0; action < moves.size(); ++action) {
+    //             if (!moves[action]) continue;
+
+    //             rl::games::NNUEUpdate move_update;
+    //             auto next_state = light_state->step_state_light(action, move_update);
+    //             apply_update(acc_w, acc_b, move_update);
+
+    //             // The recursive call
+    //             float score = -alphabeta(*next_state, acc_w, acc_b, d - 1, -beta, -alpha, start_time);
+
+    //             reverse_update(acc_w, acc_b, move_update);
+
+    //             if (time_up_) break; // Stop immediately if time ran out
+
+    //             if (score > best_score) {
+    //                 best_score = score;
+    //                 best_move_at_this_depth = action;
+    //             }
+    //             alpha = std::max(alpha, best_score);
+    //         }
+
+    //         if (time_up_) break; // Don't use the incomplete results from this depth
+
+    //         best_move_global = best_move_at_this_depth;
+    //         best_score_global = best_score;
+
+    //         // Check if we already spent > 50% of our time. If so, don't start a new depth.
+    //         auto now = std::chrono::high_resolution_clock::now();
+    //         if ((now - start_time) * 2 > max_duration_) break;
+    //     }
+
+    //     auto end_time = std::chrono::high_resolution_clock::now();
+    //     std::chrono::duration<double> duration_seconds = end_time - start_time;
+    //     double nps = (duration_seconds.count() > 0) ? (nodes_visited_ / duration_seconds.count()) : 0;
+
+    //     std::cout << "NNUE Score: " << best_score_global
+    //         << "\tNPS: " << static_cast<uint64_t>(nps)
+    //         << "\tMove: " << best_move_global << std::endl;
+
+    //     return best_move_global;
+    // }
 
     int choose_action(const std::unique_ptr<rl::common::IState>& state_ptr) override {
         auto start_time = std::chrono::high_resolution_clock::now();
@@ -29,10 +98,14 @@ public:
         for (int i = 0; i < 256; ++i) acc_w[i] = acc_b[i] = model_.l1_bias[i];
         apply_update(acc_w, acc_b, initial_features);
 
+        float features_weight = light_state->calculate_feature_weight();
         int best_move_global = -1;
         time_up_ = false;
         nodes_visited_ = 0;
         float best_score_global = -1e9;
+        auto moves = light_state->actions_mask_2();
+        auto priority = light_state->detect_threats();
+
         // --- ITERATIVE DEEPENING LOOP ---
         for (int d = 1; d <= 100; ++d) {
             float alpha = -1e9;
@@ -40,11 +113,33 @@ public:
             int best_move_at_this_depth = -1;
             float best_score = -1e9;
 
-            auto moves = light_state->actions_mask_2();
+            std::array<int, 64> used{};
+
+            for (int action : priority) {
+                if (!moves[action]) continue;
+
+                used[action] = 1;
+
+                rl::games::NNUEUpdate move_update;
+                auto next_state = light_state->step_state_light(action, move_update);
+                apply_update(acc_w, acc_b, move_update);
+
+                float score = -alphabeta(*next_state, acc_w, acc_b, d - 1, -beta, -alpha, start_time);
+
+                reverse_update(acc_w, acc_b, move_update);
+
+                if (time_up_) break;
+
+                if (score > best_score) {
+                    best_score = score;
+                    best_move_at_this_depth = action;
+                }
+                alpha = std::max(alpha, best_score);
+            }
 
             // Root Search (special case of Alpha-Beta that tracks the move)
             for (int action = 0; action < moves.size(); ++action) {
-                if (!moves[action]) continue;
+                if (!moves[action] || used[action]) continue;
 
                 rl::games::NNUEUpdate move_update;
                 auto next_state = light_state->step_state_light(action, move_update);
@@ -84,84 +179,6 @@ public:
 
         return best_move_global;
     }
-
-    // int choose_action(const std::unique_ptr<rl::common::IState>& state_ptr) override {
-    //     auto start_time = std::chrono::high_resolution_clock::now();
-    //     auto light_state = rl::games::MigoyugoLightState::from_short(state_ptr->to_short());
-
-    //     // 1. Initialize Accumulators
-    //     std::array<int16_t, 256> acc_w, acc_b;
-    //     rl::games::NNUEUpdate initial_features;
-    //     light_state->get_active_features(initial_features);
-    //     acc_w = acc_b = model_.l1_bias; // Use bulk assignment for speed
-    //     apply_update(acc_w, acc_b, initial_features);
-
-    //     // 2. Track all move scores for the randomness logic
-    //     std::vector<std::pair<int, float>> completed_depth_moves;
-    //     int best_move_global = -1;
-    //     float best_score_global = -1e9;
-    //     time_up_ = false;
-    //     nodes_visited_ = 0;
-
-    //     auto legal_moves = light_state->actions_mask_2();
-
-    //     for (int d = 1; d <= 100; ++d) {
-    //         std::vector<std::pair<int, float>> current_depth_results;
-    //         float alpha = -1e9;
-    //         float beta = 1e9;
-
-    //         // --- ROOT SEARCH ---
-    //         for (int action = 0; action < legal_moves.size(); ++action) {
-    //             if (!legal_moves[action]) continue;
-
-    //             rl::games::NNUEUpdate move_update;
-    //             auto next_state = light_state->step_state_light(action, move_update);
-    //             apply_update(acc_w, acc_b, move_update);
-
-    //             float score = -alphabeta(*next_state, acc_w, acc_b, d - 1, -beta, -alpha, start_time);
-
-    //             reverse_update(acc_w, acc_b, move_update);
-
-    //             if (time_up_) break;
-
-    //             current_depth_results.push_back({ action, score });
-    //             alpha = std::max(alpha, score);
-    //         }
-
-    //         if (time_up_) break;
-
-    //         // Update the "Source of Truth" with the results from this finished depth
-    //         completed_depth_moves = std::move(current_depth_results);
-
-    //         // Sort the moves so the best move is at index 0 (helps Alpha-Beta next iteration)
-    //         std::sort(completed_depth_moves.begin(), completed_depth_moves.end(),
-    //             [](const auto& a, const auto& b) { return a.second > b.second; });
-
-    //         best_move_global = completed_depth_moves[0].first;
-    //         best_score_global = completed_depth_moves[0].second;
-
-    //         auto now = std::chrono::high_resolution_clock::now();
-    //         if ((now - start_time) * 2 > max_duration_) break;
-    //     }
-
-    //     // 3. Final Decision: Randomness vs. Competitive
-    //     int final_move = best_move_global;
-    //     // if (!completed_depth_moves.empty()) {
-    //     //     float game_progress = light_state->calculate_feature_weight();
-    //     //     final_move = select_randomized_move(completed_depth_moves, game_progress);
-    //     // }
-
-    //     // 4. Logging
-    //     auto end_time = std::chrono::high_resolution_clock::now();
-    //     std::chrono::duration<double> duration_seconds = end_time - start_time;
-    //     double nps = (duration_seconds.count() > 0) ? (nodes_visited_ / duration_seconds.count()) : 0;
-
-    //     std::cout << "NNUE Score: " << best_score_global
-    //         << "\tNPS: " << static_cast<uint64_t>(nps)
-    //         << "\tMove: " << final_move << std::endl;
-
-    //     return final_move;
-    // }
 
 private:
     const NNUEModel model_;
@@ -232,6 +249,64 @@ private:
         return static_cast<float>(final_sum) / (128.0f * 128.0f);
     }
 
+    // float alphabeta(rl::games::MigoyugoLightState& state,
+    //     std::array<int16_t, 256>& acc_w,
+    //     std::array<int16_t, 256>& acc_b,
+    //     int depth, float alpha, float beta,
+    //     std::chrono::time_point<std::chrono::high_resolution_clock> start_time)
+    // {
+    //     // Periodic Time Check (Every 2048 nodes to keep overhead low)
+    //     if ((nodes_visited_++ & 2047) == 0) {
+    //         if (std::chrono::high_resolution_clock::now() - start_time > max_duration_) {
+    //             time_up_ = true;
+    //         }
+    //     }
+    //     if (time_up_) return 0;
+
+    //     // Terminal/Leaf Evaluation
+    //     // if (depth == 0 || state.is_terminal()) {
+    //     //     auto& current_acc = (state.player_turn() == 0) ? acc_w : acc_b;
+    //     //     return evaluate_nnue_simd(current_acc, model_);
+    //     // }
+    //     if (state.is_terminal()) {
+    //         // 1. Get the relative reward (-1.0 = current player lost, 1.0 = current player won)
+    //         float reward = state.get_reward();
+
+    //         // 2. DO NOT flip the sign if the reward is already relative.
+    //         // Use a large constant to ensure it overrides NNUE.
+    //         // Adding (reward * depth) ensures:
+    //         // - Wins: +depth (prefers faster win)
+    //         // - Losses: -depth (prefers delayed loss/putting up a fight)
+    //         return (reward * 10000.0f) + (reward * depth);
+    //     }
+
+    //     // 2. If we hit the max depth but the game is still going, use NNUE
+    //     if (depth <= 0) {
+    //         auto& current_acc = (state.player_turn() == 0) ? acc_w : acc_b;
+    //         return evaluate_nnue_simd(current_acc, model_);
+    //     }
+
+    //     auto moves = state.actions_mask_2();
+    //     float value = -1e9;
+
+    //     for (int action = 0; action < moves.size(); ++action) {
+    //         if (!moves[action]) continue;
+
+    //         rl::games::NNUEUpdate move_update;
+    //         auto next_state = state.step_state_light(action, move_update);
+
+    //         apply_update(acc_w, acc_b, move_update);
+    //         value = std::max(value, -alphabeta(*next_state, acc_w, acc_b, depth - 1, -beta, -alpha, start_time));
+    //         reverse_update(acc_w, acc_b, move_update);
+
+    //         if (time_up_) return 0;
+
+    //         alpha = std::max(alpha, value);
+    //         if (alpha >= beta) break;
+    //     }
+    //     return value;
+    // }
+
     float alphabeta(rl::games::MigoyugoLightState& state,
         std::array<int16_t, 256>& acc_w,
         std::array<int16_t, 256>& acc_b,
@@ -270,10 +345,30 @@ private:
         }
 
         auto moves = state.actions_mask_2();
+        auto priority = state.detect_threats();
+        std::array<int, 64> used{};
         float value = -1e9;
 
-        for (int action = 0; action < moves.size(); ++action) {
+        // 1. Priority moves
+        for (int action : priority) {
             if (!moves[action]) continue;
+
+            used[action] = true;
+
+            rl::games::NNUEUpdate move_update;
+            auto next_state = state.step_state_light(action, move_update);
+
+            apply_update(acc_w, acc_b, move_update);
+            value = std::max(value, -alphabeta(*next_state, acc_w, acc_b, depth - 1, -beta, -alpha, start_time));
+            reverse_update(acc_w, acc_b, move_update);
+
+            if (time_up_) return 0;
+
+            alpha = std::max(alpha, value);
+            if (alpha >= beta) return value;
+        }
+        for (int action = 0; action < moves.size(); ++action) {
+            if (!moves[action] || used[action]) continue;
 
             rl::games::NNUEUpdate move_update;
             auto next_state = state.step_state_light(action, move_update);

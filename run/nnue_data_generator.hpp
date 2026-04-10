@@ -18,7 +18,7 @@ struct NNUESample {
 class NNUEDataGenerator {
 public:
     NNUEDataGenerator(std::shared_ptr<rl::deeplearning::NetworkEvaluator> evaluator,
-                      int n_concurrent_games = 1024);
+        int n_concurrent_games = 1024);
 
     ~NNUEDataGenerator();
 
@@ -29,15 +29,15 @@ public:
      * @param output_path Path to the binary output file.
      * @param temperature Controls exploration (1.0 = soft, 0.1 = nearly greedy).
      */
-    void generate(const rl::common::IState& initial_state, 
-                  int total_samples, 
-                  const std::string& output_path,
-                  float temperature = 1.0f);
+    void generate(const rl::common::IState& initial_state,
+        int total_samples,
+        const std::string& output_path,
+        float temperature = 1.0f);
 
 private:
     void save_sample_binary(std::ofstream& out, float score, const std::vector<float>& obs);
     int sample_action(const std::vector<float>& probs, int game_idx, int n_actions, float temp);
-
+    std::unique_ptr<rl::common::IState> random_advance_state(const rl::common::IState& initial_state,int depth);
     std::shared_ptr<rl::deeplearning::NetworkEvaluator> evaluator_ptr_;
     int n_concurrent_games_;
     int n_actions_;

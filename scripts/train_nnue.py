@@ -55,7 +55,7 @@ class NNUE(nn.Module):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = NNUE().to(device)
 
-full_dataset = NNUEDataset("scripts/training_data.bin")
+full_dataset = NNUEDataset("training_data.bin")
 # Regularization: Use % of data for validation to detect overfitting
 train_size = int(0.7 * len(full_dataset))
 val_size = len(full_dataset) - train_size
@@ -72,7 +72,7 @@ print(f"Training on {device}...")
 
 best_val_loss = float('inf')
 
-for epoch in range(20): # Increased epochs, early stopping will catch it
+for epoch in range(100): # Increased epochs, early stopping will catch it
     model.train()
     total_train_loss = 0
     

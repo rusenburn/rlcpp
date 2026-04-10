@@ -11,7 +11,9 @@ endif()
 
 set(SourceFiles
     ${EXCLUDED_SOURCES}
+    src/nnue_mcts_player.cpp
     src/nnue_player.cpp
+    src/nnue_mcts.cpp
     )
 
 set(HeaderFiles 

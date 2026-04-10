@@ -4,7 +4,7 @@
 
 namespace rl::ui
 {
-const std::vector<std::string> PLAYER_TYPES = { "default_g_player", "human", "network","nnue" };
+const std::vector<std::string> PLAYER_TYPES = { "default_g_player", "human", "network","nnue" ,"nnue_mcts"};
 
 MigoyugoUI::MigoyugoUI(int width, int height)
     : width_{ width }, height_{ height }, padding_{ 2 }, state_ptr_{ rl::games::MigoyugoState::initialize_state() },
@@ -382,6 +382,10 @@ void MigoyugoUI::handle_menu_events()
                 }
                 else if (selected_player_type_ == "nnue") {
                     players_.push_back(get_nnue_player(state_ptr_.get(), duration));
+                }
+
+                else if (selected_player_type_ == "nnue_mcts") {
+                    players_.push_back(get_nnue_mcts_player(state_ptr_.get(), duration));
                 }
             }
             catch (const std::invalid_argument&) {

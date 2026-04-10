@@ -88,6 +88,8 @@ public:
   static int encode_action(int row, int col);
   int get_last_action()const;
   float calculate_feature_weight() const;
+  std::vector<int> detect_threats() const;
+  static uint64_t find_extend_3_to_4(uint64_t b, uint64_t empty);
 };
 }
 

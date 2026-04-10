@@ -17,6 +17,16 @@
 namespace rl::games
 {
 
+
+inline int ctz64(uint64_t x) {
+#if defined(_MSC_VER)
+    unsigned long idx;
+    _BitScanForward64(&idx, x);
+    return (int)idx;
+#else
+    return __builtin_ctzll(x);
+#endif
+}
 MigoyugoLightState::MigoyugoLightState(std::array<std::array<int8_t, COLS>, ROWS> board, int player, int step, int last_action)
     : board_(board),
     current_player_(player),
@@ -1041,4 +1051,141 @@ float MigoyugoLightState::calculate_feature_weight() const {
     }
     return total;
 }
+
+std::vector<int> MigoyugoLightState::detect_threats() const
+{
+    auto am = actions_mask_2();
+
+    uint64_t white_migo = 0;
+    uint64_t white_yugo = 0;
+    uint64_t black_migo = 0;
+    uint64_t black_yugo = 0;
+
+    uint64_t legal_moves = 0;
+
+    // Build bitboards
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            int v = board_[r][c];
+            int idx = r * 8 + c;
+
+            if (v == 1)  white_migo |= (1ULL << idx);
+            if (v == 2)  white_yugo |= (1ULL << idx);
+            if (v == -1) black_migo |= (1ULL << idx);
+            if (v == -2) black_yugo |= (1ULL << idx);
+        }
+    }
+
+    // Legal moves bitboard
+    for (int idx = 0; idx < 64; idx++) {
+        if (am[idx]) {
+            legal_moves |= (1ULL << idx);
+        }
+    }
+
+    uint64_t occupied = white_migo | white_yugo | black_migo | black_yugo;
+    uint64_t empty = ~occupied; // fine for 64-bit
+
+    // Threat calculations
+    uint64_t white_yugo_moves = find_extend_3_to_4(white_yugo, empty);
+    uint64_t black_yugo_moves = find_extend_3_to_4(black_yugo, empty);
+
+    uint64_t white_all = white_migo | white_yugo;
+    uint64_t black_all = black_migo | black_yugo;
+
+    uint64_t white_combo_moves = find_extend_3_to_4(white_all, empty);
+    uint64_t black_combo_moves = find_extend_3_to_4(black_all, empty);
+
+    std::vector<int> priority_actions;
+
+    if (current_player_ == 0)
+    {
+        uint64_t win_threats = white_yugo_moves & legal_moves;
+
+        uint64_t loss_threats = (black_yugo_moves & legal_moves) & ~win_threats;
+
+        uint64_t win_tempo = (white_combo_moves & legal_moves)
+            & ~(win_threats | loss_threats);
+
+        uint64_t loss_tempo = (black_combo_moves & legal_moves)
+            & ~(win_threats | loss_threats | win_tempo);
+
+        // Convert bitboards → vector
+        auto extract = [&](uint64_t bb) {
+            while (bb) {
+                int idx = ctz64(bb);
+                priority_actions.push_back(idx);
+                bb &= bb - 1;
+            }
+            };
+
+        extract(win_threats);
+        extract(loss_threats);
+        extract(win_tempo);
+        extract(loss_tempo);
+    }
+    else
+    {
+        // Same logic but swapped roles
+        uint64_t win_threats = black_yugo_moves & legal_moves;
+
+        uint64_t loss_threats = (white_yugo_moves & legal_moves) & ~win_threats;
+
+        uint64_t win_tempo = (black_combo_moves & legal_moves)
+            & ~(win_threats | loss_threats);
+
+        uint64_t loss_tempo = (white_combo_moves & legal_moves)
+            & ~(win_threats | loss_threats | win_tempo);
+
+        auto extract = [&](uint64_t bb) {
+            while (bb) {
+                int idx = ctz64(bb);
+                priority_actions.push_back(idx);
+                bb &= bb - 1;
+            }
+            };
+
+        extract(win_threats);
+        extract(loss_threats);
+        extract(win_tempo);
+        extract(loss_tempo);
+    }
+
+    return priority_actions;
 }
+
+uint64_t MigoyugoLightState::find_extend_3_to_4(uint64_t b, uint64_t empty) {
+    constexpr uint64_t notA = 0xfefefefefefefefeULL;
+    constexpr uint64_t notH = 0x7f7f7f7f7f7f7f7fULL;
+
+    uint64_t result = 0;
+
+    // Horizontal
+    {
+        uint64_t three = b & ((b & notH) >> 1) & ((b & notH & (notH >> 1)) >> 2);
+        result |= ((three & notH) >> 3) | ((three & notA) << 1);
+    }
+
+    // Vertical
+    {
+        uint64_t three = b & (b >> 8) & (b >> 16);
+        result |= (three >> 24) | (three << 8);
+    }
+
+    // Diagonal ↘
+    {
+        uint64_t three = b & ((b & notH) >> 9) & ((b & notH & (notH >> 1)) >> 18);
+        result |= ((three & notH) >> 27) | ((three & notA) << 9);
+    }
+
+    // Diagonal ↙
+    {
+        uint64_t three = b & ((b & notA) >> 7) & ((b & notA & (notA << 1)) >> 14);
+        result |= ((three & notA) >> 21) | ((three & notH) << 7);
+    }
+
+    return result & empty;
+}
+}
+
+

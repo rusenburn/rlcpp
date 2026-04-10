@@ -772,8 +772,8 @@ int main() {
     nnue_pt_path = folder / "nnue_traced.pt";
     // run_sanity_check(nn_path.string(), nnue_path.string(), nnue_pt_path.string());
     // run_sanity_check2(nn_path.string(), nnue_path.string(), nnue_pt_path.string());
-    // run_sanity_check_simd(nn_path.string(), nnue_path.string(), nnue_pt_path.string());
-    run_sanity_check_simd2(nn_path.string(), nnue_path.string(), nnue_pt_path.string());
+    run_sanity_check_simd(nn_path.string(), nnue_path.string(), nnue_pt_path.string());
+    // run_sanity_check_simd2(nn_path.string(), nnue_path.string(), nnue_pt_path.string());
     // run_smoking_gun(nn_path.string(), nnue_path.string());
 
 }

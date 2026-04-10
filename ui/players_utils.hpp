@@ -28,7 +28,7 @@ std::unique_ptr<PlayerInfoFull> get_network_evaluator_ptr(rl::common::IState* st
 std::unique_ptr<PlayerInfoFull> get_tiny_network_mcts_player(rl::common::IState* state_ptr, int n_sims, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name);
 std::unique_ptr<PlayerInfoFull> get_human_player(rl::common::IState* state_ptr);
 std::unique_ptr<PlayerInfoFull> get_nnue_player(rl::common::IState* state_ptr,std::chrono::duration<int, std::milli> minimum_duration);
-
+std::unique_ptr<PlayerInfoFull> get_nnue_mcts_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration);
 
 
 } // namespace rl::ui::players_utils
