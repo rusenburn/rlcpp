@@ -23,6 +23,7 @@ private:
     static constexpr int SANTORINI = 5;
     static constexpr int GOBBLET_GOBLERS = 6;
     static constexpr int MIGOYUGO = 7;
+    static constexpr int ULTIMATE_TICTACTOE = 8;
 
     int state_choice_{ 1 };
     int n_iterations_{ 20 };

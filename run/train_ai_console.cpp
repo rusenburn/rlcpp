@@ -11,6 +11,7 @@
 #include <games/santorini.hpp>
 #include <games/gobblet_goblers.hpp>
 #include <games/migoyugo.hpp>
+#include <games/ultimate_tictactoe.hpp>
 #include <filesystem>
 namespace rl::run
 {
@@ -72,6 +73,9 @@ void TrainAIConsole::print_current_settings()
         break;
     case MIGOYUGO:
         std::cout << "Migoyugo\n";
+        break;
+    case ULTIMATE_TICTACTOE:
+        std::cout << "ULTIMATE TIC TAC TOE\n";
         break;
     default:
         std::cout << "Default\n";
@@ -256,6 +260,10 @@ IStatePtr TrainAIConsole::get_state_ptr()
     case MIGOYUGO:
         return rl::games::MigoyugoState::initialize();
         break;
+
+    case ULTIMATE_TICTACTOE:
+        return rl::games::UltimateTicTacToeState::initialize();
+        break;
     default:
         return rl::games::OthelloState::initialize();
         break;
@@ -308,6 +316,9 @@ void TrainAIConsole::edit_game_settings()
     case MIGOYUGO:
         game_name = "Migoyugo";
         break;
+    case ULTIMATE_TICTACTOE:
+        game_name = "Ultimate Tic Tac Toe";
+        break;
     default:
         game_name = "Default";
         break;
@@ -321,6 +332,7 @@ void TrainAIConsole::edit_game_settings()
     std::cout << "[5] Santorini\n";
     std::cout << "[6] Gobblet Goblers\n";
     std::cout << "[7] Migoyugo\n";
+    std::cout << "[8] Ultimate tic tac toe\n";
     std::cout << "Enter new value: ";
     std::cin >> state_choice_;
 }

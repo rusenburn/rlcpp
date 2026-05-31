@@ -172,11 +172,12 @@ std::unique_ptr<PlayerInfoFull> get_human_player(rl::common::IState* state_ptr)
     return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "Human");
 }
 
-std::unique_ptr<PlayerInfoFull> get_nnue_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration) {
+std::unique_ptr<PlayerInfoFull> get_nnue_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration,std::string load_name) {
 
     const std::string folder_name = "../checkpoints";
     std::filesystem::path folder(folder_name);
-    std::filesystem::path nnue_path = folder / "nnue_weights.bin";
+    // std::filesystem::path nnue_path = folder / "nnue_weights.bin";
+    std::filesystem::path nnue_path = folder / load_name;
 
     NNUEModel nnue_model;
 

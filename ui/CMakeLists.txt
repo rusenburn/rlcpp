@@ -21,6 +21,7 @@ set(SourceFiles
     walls/walls_ui.cpp
     walls/walls_ui_windows.cpp
     migoyugo/migoyugo_ui.cpp
+    ultimate_tictactoe/ultimate_tictactoe_ui.cpp
     IGameui.cpp
 )
 

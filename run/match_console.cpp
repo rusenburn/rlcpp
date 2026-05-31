@@ -16,6 +16,7 @@
 #include <games/santorini.hpp>
 #include <games/gobblet_goblers.hpp>
 #include <games/migoyugo.hpp>
+#include <games/ultimate_tictactoe.hpp>
 
 namespace rl::run
 {
@@ -145,6 +146,7 @@ void MatchConsole::edit_game_settings()
         std::cout << "[6] Santorini\n";
         std::cout << "[7] Gobblet Gobblers\n";
         std::cout << "[8] Migoyugo\n";
+        std::cout << "[9] Ultimate tic tac toe\n";
 
         std::cout << std::endl;
 
@@ -176,6 +178,9 @@ void MatchConsole::edit_game_settings()
             break;
         case 8:
             state_index_ = MIGOYUGO_GAME;
+            break;
+        case 9:
+            state_index_ = ULTIMATE_TIC_TAC_TOE_GAME;
             break;
         default:
             break;
@@ -397,6 +402,9 @@ IStatePtr MatchConsole::get_state_ptr()
         break;
     case MIGOYUGO_GAME:
         return rl::games::MigoyugoState::initialize();
+        break;
+    case ULTIMATE_TIC_TAC_TOE_GAME:
+        return rl::games::UltimateTicTacToeState::initialize();
         break;
     default:
         throw "";

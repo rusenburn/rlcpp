@@ -52,8 +52,6 @@ void AnalyzerConsole::run() {
     //         return;
     //     }
     // } while (choice != 0);
-
-
     get_match();
 }
 

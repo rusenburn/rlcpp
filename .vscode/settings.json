@@ -146,4 +146,11 @@
     "C_Cpp.vcFormat.space.beforeEmptySquareBrackets": false,
     "C_Cpp.inlayHints.referenceOperator.enabled": true,
     "C_Cpp.inlayHints.parameterNames.enabled": true,
+    "python-envs.pythonProjects": [
+        {
+            "path": ".",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip"
+        }
+    ],
 }

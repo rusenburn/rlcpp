@@ -209,7 +209,7 @@ void MigoyugoUI::draw_menu()
     top += input_height + 10;
 
     // Load name label and input (only for network)
-    if (selected_player_type_ == "network") {
+    if (selected_player_type_ == "network" || selected_player_type_ == "nnue") {
         DrawText("Load Name:", left, top - 5, 16, BLACK);
         top += 20;
         Rectangle loadname_rect = { left, top, input_width, input_height };
@@ -313,7 +313,7 @@ void MigoyugoUI::handle_menu_events()
         duration_input_focused_ = true;
         loadname_input_focused_ = false;
     }
-    else if (selected_player_type_ == "network") {
+    else if (selected_player_type_ == "network" || selected_player_type_ == "nnue") {
         float loadname_top = top + 25 + 10 + 20;
         Rectangle loadname_rect = { left, loadname_top, 120, 25 };
         if (mouse_clicked && CheckCollisionPointRec(mouse_pos, loadname_rect)) {
@@ -381,7 +381,11 @@ void MigoyugoUI::handle_menu_events()
                     players_.push_back(get_network_amcts2_player(state_ptr_.get(), 2, duration, loadname_input_));
                 }
                 else if (selected_player_type_ == "nnue") {
-                    players_.push_back(get_nnue_player(state_ptr_.get(), duration));
+                    if (loadname_input_.empty()) {
+                        // Default load name if empty
+                        loadname_input_ = "nnue_weights.bin";
+                    }
+                    players_.push_back(get_nnue_player(state_ptr_.get(), duration,loadname_input_));
                 }
 
                 else if (selected_player_type_ == "nnue_mcts") {

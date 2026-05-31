@@ -11,6 +11,7 @@ set(SourceFiles
     src/tictactoe.cpp
     src/othello.cpp
     src/santorini.cpp
+    src/ultimate_tictactoe.cpp
     src/walls.cpp
     )
 set(HeaderFiles )
