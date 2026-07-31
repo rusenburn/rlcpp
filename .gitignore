@@ -71,3 +71,5 @@ build
 .ionide
 
 checkpoints/
+
+scripts/*.bin

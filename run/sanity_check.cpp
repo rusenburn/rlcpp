@@ -766,7 +766,7 @@ int main() {
     nn_path = folder / "migoyugo_strongest_900.pt";
 
     std::filesystem::path nnue_path;
-    nnue_path = folder / "nnue_weights.bin";
+    nnue_path = folder / "nnue_weights_mcts.bin";
 
     std::filesystem::path nnue_pt_path;
     nnue_pt_path = folder / "nnue_traced.pt";

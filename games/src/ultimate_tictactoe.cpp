@@ -316,6 +316,7 @@ std::string UltimateTicTacToeState::to_short() const
             }
         }
     }
+    ss << '#' << last_action_;
     return ss.str();
 }
 
