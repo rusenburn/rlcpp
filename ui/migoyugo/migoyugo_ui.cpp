@@ -4,7 +4,7 @@
 
 namespace rl::ui
 {
-const std::vector<std::string> PLAYER_TYPES = { "default_g_player", "human", "network","nnue" ,"nnue_mcts"};
+const std::vector<std::string> PLAYER_TYPES = { "default_g_player", "human", "network","nnue" ,"nnue_mcts", "nnue_layerstacks" };
 
 MigoyugoUI::MigoyugoUI(int width, int height)
     : width_{ width }, height_{ height }, padding_{ 2 }, state_ptr_{ rl::games::MigoyugoState::initialize_state() },
@@ -209,7 +209,7 @@ void MigoyugoUI::draw_menu()
     top += input_height + 10;
 
     // Load name label and input (only for network)
-    if (selected_player_type_ == "network" || selected_player_type_ == "nnue") {
+    if (selected_player_type_ == "network" || selected_player_type_ == "nnue" || selected_player_type_ == "nnue_layerstacks") {
         DrawText("Load Name:", left, top - 5, 16, BLACK);
         top += 20;
         Rectangle loadname_rect = { left, top, input_width, input_height };
@@ -281,7 +281,7 @@ void MigoyugoUI::handle_board_events()
         {
             paused_ = true;
             pause_until_ = GetTime() + 5;
-            
+
             std::cout << "Actions History: ";
             for (int action : history_) {
                 std::cout << action << ' ';
@@ -313,7 +313,7 @@ void MigoyugoUI::handle_menu_events()
         duration_input_focused_ = true;
         loadname_input_focused_ = false;
     }
-    else if (selected_player_type_ == "network" || selected_player_type_ == "nnue") {
+    else if (selected_player_type_ == "network" || selected_player_type_ == "nnue" || selected_player_type_ == "nnue_layerstacks") {
         float loadname_top = top + 25 + 10 + 20;
         Rectangle loadname_rect = { left, loadname_top, 120, 25 };
         if (mouse_clicked && CheckCollisionPointRec(mouse_pos, loadname_rect)) {
@@ -385,11 +385,19 @@ void MigoyugoUI::handle_menu_events()
                         // Default load name if empty
                         loadname_input_ = "nnue_weights.bin";
                     }
-                    players_.push_back(get_nnue_player(state_ptr_.get(), duration,loadname_input_));
+                    players_.push_back(get_nnue_player(state_ptr_.get(), duration, loadname_input_));
                 }
 
                 else if (selected_player_type_ == "nnue_mcts") {
                     players_.push_back(get_nnue_mcts_player(state_ptr_.get(), duration));
+                }
+
+                else if (selected_player_type_ == "nnue_layerstacks") {
+                    if (loadname_input_.empty()) {
+                        // Default load name if empty
+                        loadname_input_ = "nnue_layerstacks_weights.bin";
+                    }
+                    players_.push_back(get_nnue_layerstacks_player(state_ptr_.get(), duration, loadname_input_));
                 }
             }
             catch (const std::invalid_argument&) {

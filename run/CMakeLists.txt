@@ -249,7 +249,7 @@ endif (MSVC)
 
 set(This sanity_check)
 project(${This})
-set(SourceFiles 
+set(SourceFiles
     sanity_check.cpp
     )
 
@@ -268,7 +268,7 @@ target_include_directories(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    deeplearning 
+    deeplearning
     "${TORCH_LIBRARIES}")
 
 # by chatgpt
@@ -279,6 +279,45 @@ RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 # The following code block is suggested to be used on Windows.
 # According to https://github.com/pytorch/pytorch/issues/25457,
 # the DLLs need to be copied to avoid memory errors.
+if (MSVC)
+  file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+  add_custom_command(TARGET ${PROJECT_NAME}
+                     POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                     ${TORCH_DLLS}
+                     $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+endif (MSVC)
+
+
+set(This sanity_check_layerstacks)
+project(${This})
+set(SourceFiles
+    sanity_check_layerstacks.cpp
+    )
+
+set(HeaderFiles )
+
+find_package(Torch REQUIRED)
+
+add_executable(${This} ${SourceFiles} ${HeaderFiles})
+set_property(TARGET ${This} PROPERTY CXX_STANDARD 17)
+
+target_include_directories(${PROJECT_NAME}
+    PUBLIC
+        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PRIVATE
+)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    nnue
+    deeplearning
+    "${TORCH_LIBRARIES}")
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
 if (MSVC)
   file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
   add_custom_command(TARGET ${PROJECT_NAME}

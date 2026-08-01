@@ -6,6 +6,7 @@
 #include <players/random_rollout_evaluator.hpp>
 #include <nnue/nnue_player.hpp>
 #include <nnue/nnue_mcts_player.hpp>
+#include <nnue/nnue_layerstacks_player.hpp>
 #include <sstream>
 
 namespace rl::ui
@@ -225,6 +226,31 @@ std::unique_ptr<PlayerInfoFull> get_nnue_mcts_player(rl::common::IState* state_p
     }
     auto player_ptr = std::make_unique<rl::players::NNUEMctsPlayer>(nnue_model, state_ptr->get_n_actions(), 10, minimum_duration, 2.0f);
     return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "NNUE");
+
+}
+
+std::unique_ptr<PlayerInfoFull> get_nnue_layerstacks_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name) {
+
+    const std::string folder_name = "../checkpoints";
+    std::filesystem::path folder(folder_name);
+    std::filesystem::path nnue_path = folder / load_name;
+
+    NNUELayerStacksModel nnue_model;
+
+    FILE* f = fopen(nnue_path.string().c_str(), "rb");
+
+    if (f) {
+        size_t read_count = fread(&nnue_model, sizeof(NNUELayerStacksModel), 1, f);
+        if (read_count != 1) {
+            // Handle partial read / error
+        }
+        fclose(f);
+    }
+    else {
+        std::cerr << "Could not open model file at " << nnue_path << std::endl;
+    }
+    auto player_ptr = std::make_unique<rl::players::NNUELayerStacksPlayer>(nnue_model, minimum_duration);
+    return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "NNUE-LayerStacks");
 
 }
 } // namespace rl::ui::players_utils

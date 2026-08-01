@@ -14,6 +14,7 @@ set(SourceFiles
     src/nnue_mcts_player.cpp
     src/nnue_player.cpp
     src/nnue_mcts.cpp
+    src/nnue_layerstacks_player.cpp
     )
 
 set(HeaderFiles 
