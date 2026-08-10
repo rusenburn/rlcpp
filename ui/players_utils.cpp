@@ -7,6 +7,7 @@
 #include <nnue/nnue_player.hpp>
 #include <nnue/nnue_mcts_player.hpp>
 #include <nnue/nnue_layerstacks_player.hpp>
+#include <nnue/nnue_layerstacks_player_v2.hpp>
 #include <sstream>
 
 namespace rl::ui
@@ -188,13 +189,14 @@ std::unique_ptr<PlayerInfoFull> get_nnue_player(rl::common::IState* state_ptr, s
     if (f) {
         size_t read_count = fread(&nnue_model, sizeof(NNUEModel), 1, f);
         if (read_count != 1) {
-            // Handle partial read / error
+            std::cerr << "Truncated model file at " << nnue_path << ": expected "
+                << sizeof(NNUEModel) << " bytes. The player will evaluate garbage." << std::endl;
         }
         fclose(f);
     }
     else {
-        // Handle file not found error
-        std::cerr << "Could not open model file at " << nnue_path << std::endl;
+        std::cerr << "Could not open model file at " << nnue_path
+            << ". The player will evaluate garbage." << std::endl;
     }
     auto player_ptr = std::make_unique<rl::players::NNUEPlayer>(nnue_model, minimum_duration);
     return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "NNUE");
@@ -216,13 +218,14 @@ std::unique_ptr<PlayerInfoFull> get_nnue_mcts_player(rl::common::IState* state_p
     if (f) {
         size_t read_count = fread(&nnue_model, sizeof(NNUEModel), 1, f);
         if (read_count != 1) {
-            // Handle partial read / error
+            std::cerr << "Truncated model file at " << nnue_path << ": expected "
+                << sizeof(NNUEModel) << " bytes. The player will evaluate garbage." << std::endl;
         }
         fclose(f);
     }
     else {
-        // Handle file not found error
-        std::cerr << "Could not open model file at " << nnue_path << std::endl;
+        std::cerr << "Could not open model file at " << nnue_path
+            << ". The player will evaluate garbage." << std::endl;
     }
     auto player_ptr = std::make_unique<rl::players::NNUEMctsPlayer>(nnue_model, state_ptr->get_n_actions(), 10, minimum_duration, 2.0f);
     return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "NNUE");
@@ -242,15 +245,37 @@ std::unique_ptr<PlayerInfoFull> get_nnue_layerstacks_player(rl::common::IState* 
     if (f) {
         size_t read_count = fread(&nnue_model, sizeof(NNUELayerStacksModel), 1, f);
         if (read_count != 1) {
-            // Handle partial read / error
+            std::cerr << "Truncated model file at " << nnue_path << ": expected "
+                << sizeof(NNUELayerStacksModel) << " bytes. The player will evaluate garbage." << std::endl;
         }
         fclose(f);
     }
     else {
-        std::cerr << "Could not open model file at " << nnue_path << std::endl;
+        std::cerr << "Could not open model file at " << nnue_path
+            << ". The player will evaluate garbage." << std::endl;
     }
     auto player_ptr = std::make_unique<rl::players::NNUELayerStacksPlayer>(nnue_model, minimum_duration);
     return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "NNUE-LayerStacks");
+
+}
+std::unique_ptr<PlayerInfoFull> get_nnue_layerstacks_v2_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name) {
+
+    const std::string folder_name = "../checkpoints";
+    std::filesystem::path folder(folder_name);
+    std::filesystem::path nnue_path = folder / load_name;
+
+    // The v2 loader validates a magic number, the version and the layer
+    // geometry, so a stale v1 file or a truncated export is reported instead of
+    // being read as noise.
+    auto model = load_nnue_layerstacks_v2(nnue_path.string());
+    if (!model) {
+        std::cerr << "Falling back to a zeroed v2 model; this player will not play sensibly."
+            << std::endl;
+        model = std::make_shared<NNUELayerStacksModelV2>();
+    }
+
+    auto player_ptr = std::make_unique<rl::players::NNUELayerStacksPlayerV2>(model, minimum_duration);
+    return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "NNUE-LayerStacks-v2");
 
 }
 } // namespace rl::ui::players_utils

@@ -1154,35 +1154,59 @@ std::vector<int> MigoyugoLightState::detect_threats() const
     return priority_actions;
 }
 
+// Empty squares where placing a piece of `b`'s owner completes an unbroken
+// line of 4 or more.
+//
+// The previous implementation only looked for a *contiguous* triple and then
+// emitted its two extension squares, so it missed split completions such as
+// "##.#", and both its shift directions and its file masks were inverted (it
+// emitted squares 3 steps beyond the wrong end of the triple, plus a square
+// inside the triple itself). It disagreed with a brute-force reference on
+// ~95% of random boards, which made detect_threats() little better than
+// random move ordering.
+//
+// The formulation below is exact. For an axis step S, let
+//   R[k] = squares whose k neighbours at +S, +2S, ... +kS are all in b
+//   L[k] = the same going the other way,
+// so a square with `left` own pieces on one side and `right` on the other
+// completes a line of length left + right + 1. Requiring left + right >= 3
+// is the union over k of (R[k] & L[3-k]).
+//
+// Masking rule: a shift whose column delta is +i masks the *result* with
+// "col >= i"; a shift whose column delta is -i masks the result with
+// "col <= 7-i". Bit index is row*8 + col, so >>S reads forward along the axis
+// and <<S reads backward.
 uint64_t MigoyugoLightState::find_extend_3_to_4(uint64_t b, uint64_t empty) {
-    constexpr uint64_t notA = 0xfefefefefefefefeULL;
-    constexpr uint64_t notH = 0x7f7f7f7f7f7f7f7fULL;
+    // dest col <= 7-i, for column-decreasing shifts
+    constexpr uint64_t LM1 = 0x7f7f7f7f7f7f7f7fULL;
+    constexpr uint64_t LM2 = 0x3f3f3f3f3f3f3f3fULL;
+    constexpr uint64_t LM3 = 0x1f1f1f1f1f1f1f1fULL;
+    // dest col >= i, for column-increasing shifts
+    constexpr uint64_t RM1 = 0xfefefefefefefefeULL;
+    constexpr uint64_t RM2 = 0xfcfcfcfcfcfcfcfcULL;
+    constexpr uint64_t RM3 = 0xf8f8f8f8f8f8f8f8ULL;
+    constexpr uint64_t ALL = ~0ULL;
 
     uint64_t result = 0;
 
-    // Horizontal
-    {
-        uint64_t three = b & ((b & notH) >> 1) & ((b & notH & (notH >> 1)) >> 2);
-        result |= ((three & notH) >> 3) | ((three & notA) << 1);
-    }
+    auto axis = [&](int step,
+        uint64_t fm1, uint64_t fm2, uint64_t fm3,
+        uint64_t bm1, uint64_t bm2, uint64_t bm3) {
+            const uint64_t r1 = (b >> step) & fm1;
+            const uint64_t r2 = r1 & ((b >> (step * 2)) & fm2);
+            const uint64_t r3 = r2 & ((b >> (step * 3)) & fm3);
 
-    // Vertical
-    {
-        uint64_t three = b & (b >> 8) & (b >> 16);
-        result |= (three >> 24) | (three << 8);
-    }
+            const uint64_t l1 = (b << step) & bm1;
+            const uint64_t l2 = l1 & ((b << (step * 2)) & bm2);
+            const uint64_t l3 = l2 & ((b << (step * 3)) & bm3);
 
-    // Diagonal ↘
-    {
-        uint64_t three = b & ((b & notH) >> 9) & ((b & notH & (notH >> 1)) >> 18);
-        result |= ((three & notH) >> 27) | ((three & notA) << 9);
-    }
+            result |= l3 | (r1 & l2) | (r2 & l1) | r3;
+        };
 
-    // Diagonal ↙
-    {
-        uint64_t three = b & ((b & notA) >> 7) & ((b & notA & (notA << 1)) >> 14);
-        result |= ((three & notA) >> 21) | ((three & notH) << 7);
-    }
+    axis(1, LM1, LM2, LM3, RM1, RM2, RM3); // horizontal   (>>1 moves col +1)
+    axis(8, ALL, ALL, ALL, ALL, ALL, ALL); // vertical     (no column change)
+    axis(9, LM1, LM2, LM3, RM1, RM2, RM3); // diagonal down-right (>>9 -> col +1)
+    axis(7, RM1, RM2, RM3, LM1, LM2, LM3); // diagonal down-left  (>>7 -> col -1)
 
     return result & empty;
 }

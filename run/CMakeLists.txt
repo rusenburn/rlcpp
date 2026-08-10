@@ -326,3 +326,105 @@ if (MSVC)
                      ${TORCH_DLLS}
                      $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 endif (MSVC)
+
+# ---------------------------------------------------------------------------
+# Migoyugo NNUE v2 targets
+# ---------------------------------------------------------------------------
+
+# bench_migoyugo_bb - correctness and speed harness for the bitboard engine.
+# Deliberately free of Torch: it is the gate the bitboard rules must pass
+# before anything downstream trusts them, and it should stay quick to build.
+set(This bench_migoyugo_bb)
+project(${This})
+
+add_executable(${This} bench_migoyugo_bb.cpp)
+set_property(TARGET ${This} PROPERTY CXX_STANDARD 17)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    nnue
+    games
+    common)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+
+# convert_nnue_data_384 - rewrites a 256-feature training set into the
+# 384-feature layout by deriving the two piline channels offline.
+set(This convert_nnue_data_384)
+project(${This})
+
+add_executable(${This} convert_nnue_data_384.cpp)
+set_property(TARGET ${This} PROPERTY CXX_STANDARD 17)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC games common)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+
+# generate_data_mcts_v2 - self-play generation emitting 384-feature records.
+set(This generate_data_mcts_v2)
+project(${This})
+set(SourceFiles
+    generate_data_mcts_v2.cpp
+    mcts_nnue_data_generator_v2.cpp
+    )
+
+set(HeaderFiles )
+
+set(CUDNN_LIBRARY_PATH "C:/Program Files/NVIDIA/CUDNN/v8.5.0.96/lib")
+set(CUDNN_INCLUDE_PATH "C:/Program Files/NVIDIA/CUDNN/v8.5.0.96/include")
+find_package(Torch REQUIRED)
+
+add_executable(${This} ${SourceFiles} ${HeaderFiles})
+set_property(TARGET ${This} PROPERTY CXX_STANDARD 17)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    games
+    deeplearning
+    "${TORCH_LIBRARIES}")
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+if (MSVC)
+  file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+  add_custom_command(TARGET ${PROJECT_NAME}
+                     POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                     ${TORCH_DLLS}
+                     $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+endif (MSVC)
+
+
+# sanity_check_layerstacks_v2 - big residual net vs the quantized 384-feature
+# NNUE, position by position.
+set(This sanity_check_layerstacks_v2)
+project(${This})
+
+find_package(Torch REQUIRED)
+
+add_executable(${This} sanity_check_layerstacks_v2.cpp)
+set_property(TARGET ${This} PROPERTY CXX_STANDARD 17)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    nnue
+    deeplearning
+    "${TORCH_LIBRARIES}")
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+if (MSVC)
+  file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+  add_custom_command(TARGET ${PROJECT_NAME}
+                     POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                     ${TORCH_DLLS}
+                     $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+endif (MSVC)
