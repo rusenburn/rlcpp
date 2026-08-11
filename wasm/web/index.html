@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Migoyugo — NNUE engine in your browser</title>
+  <meta name="description" content="Play Migoyugo against a quantized NNUE alpha-beta engine compiled to WebAssembly.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='%23e8e2d5'/><circle cx='16' cy='16' r='4' fill='%23c0392b'/></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Migoyugo</h1>
+    <p class="subtitle">384-feature NNUE, alpha-beta with a transposition table, compiled to WebAssembly</p>
+    <button id="theme" class="ghost" type="button" title="Toggle light and dark">◐</button>
+  </header>
+
+  <main class="layout">
+    <section class="board-pane">
+      <div class="scoreline">
+        <div class="side" id="turn-w">
+          <span class="stone white"></span>
+          <span class="name">White</span>
+          <span class="yugos" id="score-w">0</span>
+        </div>
+        <div class="side" id="turn-b">
+          <span class="stone black"></span>
+          <span class="name">Black</span>
+          <span class="yugos" id="score-b">0</span>
+        </div>
+      </div>
+
+      <div class="board" id="board"></div>
+
+      <p class="status" id="status">Loading engine…</p>
+      <p class="banner" id="banner" hidden></p>
+    </section>
+
+    <aside class="panel">
+      <div class="card">
+        <h2>Game</h2>
+        <label class="row">
+          <span>Mode</span>
+          <select id="mode">
+            <option value="human-bot">You vs Engine</option>
+            <option value="bot-bot">Engine vs Engine</option>
+            <option value="human-human">Two players</option>
+          </select>
+        </label>
+        <label class="row" id="seat-row">
+          <span>You play</span>
+          <select id="seat">
+            <option value="white">White (first)</option>
+            <option value="black">Black</option>
+          </select>
+        </label>
+        <label class="row" id="bot-row">
+          <span>Think time</span>
+          <span class="slider">
+            <input id="think" type="range" min="100" max="3000" step="100" value="1000">
+            <output id="think-label">1.0 s</output>
+          </span>
+        </label>
+        <div class="buttons">
+          <button id="btn-new" type="button" class="primary">New game</button>
+          <button id="btn-run" type="button" hidden>Start</button>
+          <button id="btn-stop" type="button" hidden>Stop</button>
+          <button id="btn-undo" type="button">Undo</button>
+          <button id="btn-hint" type="button">Hint</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Engine</h2>
+        <dl class="stats">
+          <div><dt>Depth</dt><dd id="eng-depth">—</dd></div>
+          <div><dt title="Positive favours White, negative favours Black">Score</dt><dd id="eng-score">—</dd></div>
+          <div><dt>Nodes</dt><dd id="eng-nodes">—</dd></div>
+          <div><dt>Speed</dt><dd id="eng-nps">—</dd></div>
+        </dl>
+      </div>
+
+      <div class="card">
+        <h2>Display</h2>
+        <label class="check"><input type="checkbox" id="opt-flip"> Flip board</label>
+        <label class="check"><input type="checkbox" id="opt-hints" checked> Mark promoting and winning moves</label>
+        <label class="check"><input type="checkbox" id="opt-piline" checked> Mark forbidden squares</label>
+        <label class="check"><input type="checkbox" id="opt-sound" checked> Sound</label>
+      </div>
+
+      <div class="card moves-card">
+        <h2>Moves</h2>
+        <ol class="moves" id="moves"></ol>
+      </div>
+    </aside>
+  </main>
+
+  <section class="rules">
+    <h2>How to play</h2>
+    <div class="rules-grid">
+      <div>
+        <h3>Placing</h3>
+        <p>White moves first. On your turn you place a <strong>Migo</strong> — a plain stone — on any
+        empty square.</p>
+      </div>
+      <div>
+        <h3>Yugos</h3>
+        <p>Complete an unbroken line of <strong>exactly four</strong> of your own pieces and the stone
+        you just placed becomes a <strong>Yugo</strong>, marked with a dot. Every Migo in those lines
+        is removed; Yugos are permanent and never move or die.</p>
+      </div>
+      <div>
+        <h3>No long lines</h3>
+        <p>You may never create an unbroken line of <strong>more than four</strong> of your own pieces.
+        Squares where that would happen are marked and cannot be played.</p>
+      </div>
+      <div>
+        <h3>Winning</h3>
+        <p><strong>Igo:</strong> line up four of your own Yugos and you win instantly.
+        <strong>Wego:</strong> if the player to move has no legal move, the game ends and whoever has
+        more Yugos wins. Equal Yugos is a draw.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="overlay" id="overlay" hidden>
+    <div class="overlay-box">
+      <h2 id="overlay-title">Loading</h2>
+      <p id="overlay-text"></p>
+      <button id="overlay-action" type="button" class="primary" hidden>Reload</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

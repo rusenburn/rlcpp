@@ -428,3 +428,20 @@ if (MSVC)
                      ${TORCH_DLLS}
                      $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 endif (MSVC)
+
+
+# test_wasm_api - drives the WebAssembly C ABI natively, so its semantics are
+# tested in a debugger before a browser is involved. Links the same translation
+# unit emcc compiles.
+set(This test_wasm_api)
+project(${This})
+
+add_executable(${This} test_wasm_api.cpp ${CMAKE_SOURCE_DIR}/wasm/migoyugo_wasm.cpp)
+set_property(TARGET ${This} PROPERTY CXX_STANDARD 17)
+
+target_include_directories(${This} PRIVATE ${CMAKE_SOURCE_DIR}/wasm)
+target_link_libraries(${PROJECT_NAME} PUBLIC nnue games common)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)

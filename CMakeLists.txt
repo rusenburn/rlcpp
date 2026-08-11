@@ -18,18 +18,45 @@ if(NOT EMSCRIPTEN)
     if(MSVC)
         add_compile_options(/arch:AVX)
     else()
-        add_compile_options(-mavx -msse4.2 -mpopcnt)
-        add_compile_options($<$<CONFIG:Release>:-O3>)
-        add_compile_options($<$<CONFIG:RelWithDebInfo>:-O2>)
+        # add_compile_options(-mavx -msse4.2 -mpopcnt)
+        # add_compile_options($<$<CONFIG:Release>:-O3>)
+        # add_compile_options($<$<CONFIG:RelWithDebInfo>:-O2>)
     endif()
 endif()
 
-# Only add raylib for non-WASM builds (has GUI dependencies that don't work in WASM)
-if(NOT EMSCRIPTEN)
-    add_subdirectory(external/raylib5.0)
+# WebAssembly baseline. EMSCRIPTEN is only ever defined by the toolchain file
+# emcmake injects, so nothing here can reach a native build.
+#
+# These are directory properties and must be set BEFORE the add_subdirectory
+# calls below: add_subdirectory snapshots the parent's properties at the point
+# of the call, and the whole engine is header-inlined into nnue/, so putting
+# the flags on the wasm target alone would leave the accumulator and the
+# evaluation compiled as scalar code.
+#
+#  -msimd128  enables the WebAssembly SIMD proposal. Every intrinsic the engine
+#             uses lowers to a single wasm instruction: _mm_add/sub_epi16 ->
+#             i16x8.add/sub, _mm_madd_epi16 -> i32x4.dot_i16x8_s,
+#             _mm_min/max_epi16 -> i16x8.min/max_s, _mm_load_si128 -> v128.load.
+#  -msse2     makes emscripten's <emmintrin.h> shim visible; the shim is gated
+#             on __SSE2__, so -msimd128 on its own still fails to compile
+#             nnue_layerstacks_player_v2.hpp's <immintrin.h>.
+#  -O3        stated explicitly because Emscripten.cmake overrides
+#             CMAKE_CXX_FLAGS_RELEASE to "-DNDEBUG -O2" - CMAKE_BUILD_TYPE=Release
+#             alone does NOT give -O3 here. Directory COMPILE_OPTIONS are
+#             appended after the per-config flags, so the later -O3 wins.
+if(EMSCRIPTEN)
+    add_compile_options(-msimd128 -msse2 -O3)
+    add_link_options(-O3)
 endif()
 
-add_subdirectory(external/abseil-cpp)
+# Only add raylib for non-WASM builds (has GUI dependencies that don't work in WASM)
+# Abseil is in the same boat: only run/ links it, and run/ is excluded below,
+# so a WASM build was spending minutes compiling it for nothing.
+if(NOT EMSCRIPTEN)
+    add_subdirectory(external/raylib5.0)
+    add_subdirectory(external/abseil-cpp)
+endif()
+
 add_subdirectory(common)
 add_subdirectory(games)
 add_subdirectory(players)

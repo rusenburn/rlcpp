@@ -69,12 +69,34 @@ public:
 
     int choose_action(const std::unique_ptr<rl::common::IState>& state_ptr) override
     {
+        return search_position(mgbb::MigoyugoBB::from_short(state_ptr->to_short()));
+    }
+
+    // Time-budgeted search from a bitboard position - exactly what
+    // choose_action has always done once it finished parsing to_short().
+    // Returns the chosen square, or -1 if the position is already over.
+    //
+    // Callers that already hold a MigoyugoBB (the WebAssembly front end, any
+    // analysis tool) use this directly and skip the to_short round trip.
+    // Note that from_short() resets ply to 0 whereas this takes position.ply
+    // as given; nothing in the search reads root_.ply (search carries its own
+    // ply parameter and estimated_turns() is derived from the board), so the
+    // two entry points are equivalent.
+    int search_position(const mgbb::MigoyugoBB& position)
+    {
         start_time_ = std::chrono::high_resolution_clock::now();
         time_up_ = false;
         nodes_ = 0;
         ++generation_;
 
-        root_ = mgbb::MigoyugoBB::from_short(state_ptr->to_short());
+        // Reset the reported stats up front so the early returns below cannot
+        // leave the previous search's numbers on display.
+        last_depth_ = 0;
+        last_score_ = 0;
+        last_move_ = -1;
+        last_elapsed_ = 0.0;
+
+        root_ = position;
 
         std::memset(killers_, 0xff, sizeof(killers_));
         age_history();
@@ -86,10 +108,10 @@ public:
 
         // An immediate Igo needs no search at all.
         const uint64_t instant = root_.winning_moves();
-        if (instant) return mgbb::ctz64(instant);
+        if (instant) { last_move_ = mgbb::ctz64(instant); last_score_ = MATE - 1; return last_move_; }
 
         // Only one legal move: play it.
-        if ((legal & (legal - 1)) == 0) return mgbb::ctz64(legal);
+        if ((legal & (legal - 1)) == 0) { last_move_ = mgbb::ctz64(legal); return last_move_; }
 
         state_ = root_;
         int best_move = mgbb::ctz64(legal);
@@ -143,15 +165,19 @@ public:
             if ((now - start_time_) * 2 > max_duration_) break;
         }
 
+        last_depth_ = completed_depth;
+        last_score_ = best_score;
+        last_move_ = best_move;
+        last_elapsed_ = std::chrono::duration<double>(
+            std::chrono::high_resolution_clock::now() - start_time_).count();
+
         if (verbose_)
         {
-            const double secs = std::chrono::duration<double>(
-                std::chrono::high_resolution_clock::now() - start_time_).count();
-            std::cout << "NNUE-LS-v2  depth " << completed_depth
-                << "\tscore " << best_score / 1024.0
+            std::cout << "NNUE-LS-v2  depth " << last_depth_
+                << "\tscore " << last_score_ / 1024.0
                 << "\tnodes " << nodes_
-                << "\tnps " << static_cast<uint64_t>(secs > 0 ? nodes_ / secs : 0)
-                << "\tmove " << best_move << std::endl;
+                << "\tnps " << static_cast<uint64_t>(last_elapsed_ > 0 ? nodes_ / last_elapsed_ : 0)
+                << "\tmove " << last_move_ << std::endl;
         }
 
         return best_move;
@@ -181,7 +207,20 @@ public:
     // Turning them off makes the search exact, which is what the forced-move
     // soundness test needs in order to compare scores at all.
     void set_use_lmr(bool on) { use_lmr_ = on; }
+
+    // Difficulty is a slider, not a new engine: changing the budget must not
+    // disturb the transposition table.
+    void set_max_duration(std::chrono::duration<int, std::milli> d) { max_duration_ = d; }
+    void set_verbose(bool on) { verbose_ = on; }
+
     uint64_t nodes() const { return nodes_; }
+
+    // Stats from the last search, for a UI readout that does not have to
+    // scrape stdout.
+    int last_depth() const { return last_depth_; }
+    int last_score() const { return last_score_; } // engine units; /1024.0 for the net's scale
+    int last_move() const { return last_move_; }
+    double last_elapsed_s() const { return last_elapsed_; }
 
     void resize_tt(size_t mb)
     {
@@ -803,6 +842,10 @@ private:
     int history_[2][64]{};
 
     uint64_t nodes_{ 0 };
+    int last_depth_{ 0 };
+    int last_score_{ 0 };
+    int last_move_{ -1 };
+    double last_elapsed_{ 0.0 };
     int root_best_move_{ -1 };
     int generation_{ 0 };
     bool time_up_{ false };

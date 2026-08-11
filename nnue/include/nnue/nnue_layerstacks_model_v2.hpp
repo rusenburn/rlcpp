@@ -23,6 +23,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
 #include <array>
 #include <cstdio>
 #include <memory>
@@ -82,6 +83,76 @@ struct NNUEModelV2Header
 inline constexpr uint32_t kNNUEModelV2Magic = 0x3255594dU; // "MYU2" little-endian
 inline constexpr uint32_t kNNUEModelV2Version = 2;
 
+// Validates a 64-byte header against what this build implements. `origin` is
+// only used to name the source in the error message.
+inline bool check_nnue_layerstacks_v2_header(const NNUEModelV2Header& header, const std::string& origin)
+{
+    if (header.magic != kNNUEModelV2Magic)
+    {
+        std::cerr << "[nnue-v2] " << origin << " is not a v2 weights file"
+            << " (magic 0x" << std::hex << header.magic << std::dec
+            << "); re-export with scripts/export_nnue_layerstacks_v2.py" << std::endl;
+        return false;
+    }
+    if (header.version != kNNUEModelV2Version ||
+        header.n_features != NNUELayerStacksModelV2::NUM_FEATURES ||
+        header.l1_size != NNUELayerStacksModelV2::L1_SIZE ||
+        header.l2_size != NNUELayerStacksModelV2::L2_SIZE ||
+        header.l3_size != NNUELayerStacksModelV2::L3_SIZE ||
+        header.n_buckets != NNUELayerStacksModelV2::NUM_BUCKETS)
+    {
+        std::cerr << "[nnue-v2] " << origin << " has geometry "
+            << header.n_features << "x" << header.l1_size << "x" << header.l2_size
+            << "x" << header.l3_size << " with " << header.n_buckets << " buckets (version "
+            << header.version << "), which this build does not implement" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+// The exact number of bytes a valid weights file has.
+inline constexpr size_t kNNUEModelV2FileBytes = sizeof(NNUEModelV2Header) + kNNUEModelV2PayloadBytes;
+
+// Allocates a model. Deliberately NOT std::make_shared: the type is
+// alignas(64) and the whole aligned-load argument in this header rests on
+// that, but make_shared fuses the control block and the object into one
+// allocation whose extended-alignment handling is a library detail. Plain
+// `new` on an over-aligned type is guaranteed by C++17 to route through the
+// aligned operator new.
+inline std::shared_ptr<NNUELayerStacksModelV2> make_nnue_layerstacks_v2()
+{
+    return std::shared_ptr<NNUELayerStacksModelV2>(new NNUELayerStacksModelV2());
+}
+
+// Loads a v2 model from a buffer already in memory. This is the path the
+// WebAssembly build uses: the browser fetches the .bin and hands the bytes
+// straight over, so no filesystem is involved. Returns nullptr on any problem.
+inline std::shared_ptr<const NNUELayerStacksModelV2> load_nnue_layerstacks_v2_from_memory(
+    const void* data, size_t len, const std::string& origin = "weights buffer")
+{
+    if (!data || len < sizeof(NNUEModelV2Header))
+    {
+        std::cerr << "[nnue-v2] " << origin << " is too short to hold a header" << std::endl;
+        return nullptr;
+    }
+
+    NNUEModelV2Header header{};
+    std::memcpy(&header, data, sizeof(header));
+    if (!check_nnue_layerstacks_v2_header(header, origin)) return nullptr;
+
+    if (len != kNNUEModelV2FileBytes)
+    {
+        std::cerr << "[nnue-v2] " << origin << " is " << len << " bytes, expected "
+            << kNNUEModelV2FileBytes << std::endl;
+        return nullptr;
+    }
+
+    auto model = make_nnue_layerstacks_v2();
+    std::memcpy(model.get(), static_cast<const uint8_t*>(data) + sizeof(header),
+        kNNUEModelV2PayloadBytes);
+    return model;
+}
+
 // Loads a v2 weights file. Returns nullptr and explains itself on any problem -
 // the v1 loaders silently accepted a missing or truncated file and played on
 // with an uninitialised model.
@@ -102,30 +173,13 @@ inline std::shared_ptr<const NNUELayerStacksModelV2> load_nnue_layerstacks_v2(co
         return nullptr;
     }
 
-    if (header.magic != kNNUEModelV2Magic)
+    if (!check_nnue_layerstacks_v2_header(header, path))
     {
-        std::cerr << "[nnue-v2] " << path << " is not a v2 weights file"
-            << " (magic 0x" << std::hex << header.magic << std::dec
-            << "); re-export with scripts/export_nnue_layerstacks_v2.py" << std::endl;
-        std::fclose(f);
-        return nullptr;
-    }
-    if (header.version != kNNUEModelV2Version ||
-        header.n_features != NNUELayerStacksModelV2::NUM_FEATURES ||
-        header.l1_size != NNUELayerStacksModelV2::L1_SIZE ||
-        header.l2_size != NNUELayerStacksModelV2::L2_SIZE ||
-        header.l3_size != NNUELayerStacksModelV2::L3_SIZE ||
-        header.n_buckets != NNUELayerStacksModelV2::NUM_BUCKETS)
-    {
-        std::cerr << "[nnue-v2] " << path << " has geometry "
-            << header.n_features << "x" << header.l1_size << "x" << header.l2_size
-            << "x" << header.l3_size << " with " << header.n_buckets << " buckets (version "
-            << header.version << "), which this build does not implement" << std::endl;
         std::fclose(f);
         return nullptr;
     }
 
-    auto model = std::make_shared<NNUELayerStacksModelV2>();
+    auto model = make_nnue_layerstacks_v2();
     if (std::fread(model.get(), kNNUEModelV2PayloadBytes, 1, f) != 1)
     {
         std::cerr << "[nnue-v2] " << path << " is truncated: expected "

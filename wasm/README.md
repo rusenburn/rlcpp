@@ -1,104 +1,155 @@
-# GPlayer WASM Module
+# Migoyugo in the browser
 
-This directory contains a WebAssembly (WASM) build of the G-Rave player for playing Migoyugo. The module allows running the sophisticated Monte Carlo Tree Search (MCTS) algorithm with Rapid Action Value Estimation (RAVE) directly in web browsers.
+A WebAssembly build of the NNUE alpha-beta engine, plus the static site that
+plays it. The engine is the same `NNUELayerStacksPlayerV2` the desktop UI uses:
+a 384-feature quantized network evaluating a bitboard search with a
+transposition table, principal variation search, killers, history and late move
+reductions.
 
-## Features
+Measured in a browser-class runtime it reaches roughly **1.4M nodes/second**,
+about 80% of the native build, because the SSE2 intrinsics in the evaluation
+map one-to-one onto WebAssembly SIMD.
 
-- **High-performance AI**: Full G-Rave MCTS implementation
-- **Web Worker support**: Asynchronous execution without blocking the UI
-- **Memory efficient**: Stateless operation with proper memory management
-- **Error handling**: Comprehensive error codes and messages
+## Design: the rules live in C++
+
+`wasm/migoyugo_wasm.cpp` exposes a small C ABI, and **every rule decision is
+made on the C++ side** by `MigoyugoBB` — the bitboard engine that
+`run/bench_migoyugo_bb.cpp` differentially tests against the reference
+implementation over hundreds of thousands of plies. JavaScript never decides
+whether a move is legal, what it captures, or whether the game is over; it asks
+and renders the answer.
+
+That is why the page can show things a hand-written JS board could not get
+right: which squares are forbidden by the no-long-lines rule, which moves
+promote to a Yugo, which win outright, and the exact four Yugos of a winning
+line.
+
+Two constraints shape the C++ entry points:
+
+- **Nothing may throw.** Emscripten's default build turns a `throw` into an
+  abort that kills the module permanently, so failures are return codes.
+  `MigoyugoState` is never touched and `from_short` (which calls `std::stoi`)
+  is never called.
+- **Nothing may trust its caller.** `MigoyugoBB::do_move` guards legality with
+  an `assert`, which `NDEBUG` removes. `Game::apply` validates range *and*
+  legality before every move, and it is the single funnel that live moves,
+  undo-replay and `load_moves` all pass through.
 
 ## Building
 
-### Prerequisites
-
-- Emscripten SDK (emcc, emcmake)
-- CMake 3.18+
-- The main rlcpp project built (for linking libraries)
-
-### Build Steps
+Requires the Emscripten SDK and an exported network.
 
 ```bash
-# From the wasm/ directory
-chmod +x build.sh
+source /path/to/emsdk/emsdk_env.sh
+cd wasm
 ./build.sh
+python3 -m http.server 8000 --directory ../build/wasm/web
+# open http://localhost:8000/
 ```
 
-This will create:
-- `gplayer_wasm.js` - JavaScript glue code
-- `gplayer_wasm.wasm` - WebAssembly binary
+A plain static server is enough — no COOP/COEP headers, no SharedArrayBuffer,
+no threads. `file://` will not work, because both WebAssembly instantiation and
+the `fetch()` of the network need `http://`.
 
-## Usage
+Output in `build/wasm/web/`:
 
-### Basic Example
+| File | |
+|---|---|
+| `index.html`, `styles.css` | the page |
+| `app.js` | controller: modes, turn logic, rendering |
+| `board.js` | persistent-DOM board renderer and animations |
+| `sound.js` | WebAudio synthesis (no audio assets) |
+| `snapshot.js` | the binary layout shared with C++ |
+| `worker.js` | owns the module and the authoritative position |
+| `migoyugo.js`, `migoyugo.wasm` | the engine |
+| `migoyugo_nnue_v2.bin` | the 273 KB network |
 
-```javascript
-// Create a Web Worker
-const worker = new Worker('worker.js');
+The network is copied from `checkpoints/nnue_layerstacks_v2_weights.bin` at
+build time. It is deliberately untracked (see `.gitignore`), so a missing file
+fails the configure loudly rather than producing a site that 404s on its own
+brain.
 
-// Wait for initialization
-worker.onmessage = function(e) {
-    if (e.data.type === 'ready') {
-        // Worker is ready, send a move request
-        worker.postMessage({
-            type: 'select_move',
-            data: {
-                actionsHistory: [0, 15, 42], // Example move history
-                numSimulations: 1000,        // Minimum simulations
-                durationMs: 5000,            // Time limit (5 seconds)
-                minRefCount: 5,              // G-RAVE min reference count
-                bias: 0.0,                   // Exploration bias
-                saveIllegalActions: true    // Save illegal AMAF actions
-            }
-        });
-    } else if (e.data.type === 'move_selected') {
-        console.log('AI chose action:', e.data.data.action);
-    } else if (e.data.type === 'error') {
-        console.error('Error:', e.data.data.error);
-    }
-};
+## Architecture
+
+The worker owns the WebAssembly module **and** the authoritative game state;
+the page is a pure view that talks to it over `postMessage`. During a search
+the worker is blocked, which costs nothing: while the engine thinks it is not
+the human's turn, so there is no move to validate, and hover, clicks and
+animations all run on the main thread regardless.
+
+Every request carries an **epoch**, bumped on new-game / undo / stop / mode
+change. The worker echoes it and the page drops replies whose epoch is stale.
+That single mechanism makes every race benign, including stopping mid-search:
+the in-flight reply is discarded and the next move is simply never scheduled.
+Engine-vs-engine runs one move per round trip from the page rather than as a
+loop inside the worker, so stopping never needs to interrupt C++.
+
+Because the position is fully reconstructible from a move list, a crashed
+worker can be terminated, respawned and replayed with `mgy_load_moves`.
+
+### Two things that will bite if you edit this
+
+- **`mgy_snapshot()` is not a getter.** It rewrites the snapshot from the
+  current position and returns its address. Cache the address and read it
+  forever and the board freezes at the initial position — which looks like a
+  dead UI, not an error.
+- **Never cache a heap view.** `ALLOW_MEMORY_GROWTH` replaces `HEAPU8` on every
+  grow and detaches the old one. Pointers into linear memory stay valid; views
+  do not. Read `mod.HEAPU8` at each use.
+
+## The C ABI
+
+```c
+int  mgy_init(const uint8_t* model, int len, int tt_mb);  // parses weights, builds the engine
+void mgy_new_game(void);
+int  mgy_play(int sq);                 // validates range AND legality
+int  mgy_undo(int plies);
+int  mgy_load_moves(const uint8_t* moves, int n);
+int  mgy_bot_move(void);               // searches and plays
+int  mgy_bot_suggest(void);            // searches without playing
+void mgy_set_time_ms(int ms);          // difficulty; does not disturb the table
+void mgy_set_tt_mb(int mb);            // resizing does clear it
+void mgy_clear_tt(void);
+const uint8_t* mgy_snapshot(void);  int mgy_snapshot_size(void);
+const uint8_t* mgy_info(void);      int mgy_info_size(void);
 ```
 
-### API Reference
+Errors: `-1` no model, `-2` square out of range, `-3` illegal move, `-4` game
+over, `-5` bad weights, `-6` model misaligned, `-7` nothing to undo.
 
-#### select_move Parameters
+The 416-byte snapshot and 32-byte info layouts are documented in
+`web/snapshot.js` and asserted in `migoyugo_wasm.cpp`
+(`static_assert(sizeof(Snapshot) == 416)`). The module also reports its own
+sizes in the `ready` message so a browser-cached `worker.js` built against a
+different layout fails loudly instead of misparsing.
 
-- `actionsHistory`: Array of integers representing the sequence of moves played so far
-- `numSimulations`: Minimum number of MCTS simulations to run
-- `durationMs`: Time limit in milliseconds for the search
-- `minRefCount`: Minimum reference count for G-RAVE algorithm
-- `bias`: Exploration bias parameter (typically 0.0)
-- `saveIllegalActions`: Whether to save illegal actions in AMAF table
+## Testing
 
-#### Return Values
+`run/test_wasm_api.cpp` links the same translation unit natively and drives the
+whole ABI in a debugger — legality rejection, piline consistency, undo/replay
+round-trips, promotion reporting, terminal detection, and the engine itself.
+Build it with the normal native build and run:
 
-- **Positive integer**: The chosen action (0-63 for 8x8 Migoyugo board)
-- **Negative codes**: Error conditions:
-  - `-1`: Invalid action history
-  - `-2`: Game already ended
-  - `-3`: Illegal action in history
-  - `-4`: Attempted to step terminal state
-  - `-5`: Generic error
+```bash
+./build/Release/bin/test_wasm_api checkpoints/nnue_layerstacks_v2_weights.bin
+```
 
-## Migoyugo Game Rules
+## The rules
 
-Migoyugo is played on an 8x8 board where players place pieces and can capture opponent pieces by surrounding them. Actions are encoded as integers 0-63, where:
-- Row = action / 8
-- Col = action % 8
+Played on an 8×8 board. White moves first.
 
-## Performance Considerations
+- **Placing.** On your turn, place a **Migo** (a plain stone) on any empty square.
+- **Yugos.** Complete an unbroken line of **exactly four** of your own pieces
+  and the stone you just placed becomes a **Yugo**, marked with a dot. Every
+  Migo in those lines is removed. Yugos are permanent — they never move and are
+  never captured. Multiple intersecting lines of exactly four are allowed.
+- **No long lines.** You may never create an unbroken line of **more than four**
+  of your own pieces. The page marks those squares.
+- **Igo.** Form an unbroken line of exactly four of your own Yugos and you win
+  instantly.
+- **Wego.** If the player to move has no legal move, or the board is full, the
+  game ends immediately and whoever has more Yugos wins. Equal Yugos is a draw.
 
-- MCTS simulations can be computationally intensive
-- Use Web Workers to avoid blocking the main thread
-- Typical search times: 1-5 seconds for good moves
-- Memory usage scales with simulation count
-
-## Integration
-
-1. Copy `gplayer_wasm.js`, `gplayer_wasm.wasm`, and `worker.js` to your web project
-2. Initialize the worker and wait for the 'ready' message
-3. Send move requests as needed
-4. Handle responses in the worker's onmessage handler
-
-This module enables running professional-level game AI directly in web browsers for real-time gameplay and analysis.
+A game can never repeat a position: Yugos are permanent, so a promoting move
+strictly increases the Yugo count and any other move strictly increases the
+occupied count.
