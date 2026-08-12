@@ -16,6 +16,7 @@ set(SourceFiles
     src/nnue_mcts.cpp
     src/nnue_layerstacks_player.cpp
     src/nnue_layerstacks_player_v2.cpp
+    src/migoyugo_grave_player.cpp
     )
 
 set(HeaderFiles 

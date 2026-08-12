@@ -350,6 +350,27 @@ RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 
 
+# bench_migoyugo_grave - correctness, throughput and strength harness for the
+# GRAVE search on the bitboard environment. Links `players` only for GPlayer,
+# the bot it is meant to replace; that pulls in g/g_node/common and nothing
+# heavier, so this stays Torch-free like bench_migoyugo_bb.
+set(This bench_migoyugo_grave)
+project(${This})
+
+add_executable(${This} bench_migoyugo_grave.cpp)
+set_property(TARGET ${This} PROPERTY CXX_STANDARD 17)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    nnue
+    players
+    games
+    common)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+
 # convert_nnue_data_384 - rewrites a 256-feature training set into the
 # 384-feature layout by deriving the two piline channels offline.
 set(This convert_nnue_data_384)

@@ -4,7 +4,19 @@
 
 namespace rl::ui
 {
-const std::vector<std::string> PLAYER_TYPES = { "default_g_player", "human", "network","nnue" ,"nnue_mcts", "nnue_layerstacks", "nnue_layerstacks_v2" };
+const std::vector<std::string> PLAYER_TYPES = { "default_g_player", "human", "network","nnue" ,"nnue_mcts", "nnue_layerstacks", "nnue_layerstacks_v2", "migoyugo_grave" };
+
+// Player types that take a weights file name. migoyugo_grave is here because
+// the field is useful to it, but it is the one type for which leaving the
+// field empty is a valid choice rather than an omission.
+static bool uses_load_name(const std::string& player_type)
+{
+    return player_type == "network"
+        || player_type == "nnue"
+        || player_type == "nnue_layerstacks"
+        || player_type == "nnue_layerstacks_v2"
+        || player_type == "migoyugo_grave";
+}
 
 MigoyugoUI::MigoyugoUI(int width, int height)
     : width_{ width }, height_{ height }, padding_{ 2 }, state_ptr_{ rl::games::MigoyugoState::initialize_state() },
@@ -209,8 +221,7 @@ void MigoyugoUI::draw_menu()
     top += input_height + 10;
 
     // Load name label and input (only for network)
-    if (selected_player_type_ == "network" || selected_player_type_ == "nnue"
-        || selected_player_type_ == "nnue_layerstacks" || selected_player_type_ == "nnue_layerstacks_v2") {
+    if (uses_load_name(selected_player_type_)) {
         DrawText("Load Name:", left, top - 5, 16, BLACK);
         top += 20;
         Rectangle loadname_rect = { left, top, input_width, input_height };
@@ -314,8 +325,7 @@ void MigoyugoUI::handle_menu_events()
         duration_input_focused_ = true;
         loadname_input_focused_ = false;
     }
-    else if (selected_player_type_ == "network" || selected_player_type_ == "nnue"
-        || selected_player_type_ == "nnue_layerstacks" || selected_player_type_ == "nnue_layerstacks_v2") {
+    else if (uses_load_name(selected_player_type_)) {
         float loadname_top = top + 25 + 10 + 20;
         Rectangle loadname_rect = { left, loadname_top, 120, 25 };
         if (mouse_clicked && CheckCollisionPointRec(mouse_pos, loadname_rect)) {
@@ -408,6 +418,13 @@ void MigoyugoUI::handle_menu_events()
                         loadname_input_ = "nnue_layerstacks_v2_weights.bin";
                     }
                     players_.push_back(get_nnue_layerstacks_v2_player(state_ptr_.get(), duration, loadname_input_));
+                }
+
+                else if (selected_player_type_ == "migoyugo_grave") {
+                    // Deliberately no default: an empty name means "no
+                    // network", which for GRAVE is the even-game heuristic and
+                    // a perfectly good bot, not a misconfiguration.
+                    players_.push_back(get_migoyugo_grave_player(state_ptr_.get(), duration, loadname_input_));
                 }
             }
             catch (const std::invalid_argument&) {

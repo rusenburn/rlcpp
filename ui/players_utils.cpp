@@ -8,6 +8,7 @@
 #include <nnue/nnue_mcts_player.hpp>
 #include <nnue/nnue_layerstacks_player.hpp>
 #include <nnue/nnue_layerstacks_player_v2.hpp>
+#include <nnue/migoyugo_grave_player.hpp>
 #include <sstream>
 
 namespace rl::ui
@@ -278,4 +279,38 @@ std::unique_ptr<PlayerInfoFull> get_nnue_layerstacks_v2_player(rl::common::IStat
     return std::make_unique<PlayerInfoFull>(std::move(player_ptr), "NNUE-LayerStacks-v2");
 
 }
+
+std::unique_ptr<PlayerInfoFull> get_migoyugo_grave_player(rl::common::IState* state_ptr,
+    std::chrono::duration<int, std::milli> minimum_duration, std::string load_name)
+{
+    // Unlike the alpha-beta players, the network is optional here: with no
+    // weights this is GRAVE with the even-game heuristic, which is a complete
+    // bot in its own right. So an empty or missing file is a configuration
+    // choice, not a failure to be papered over with a zeroed model.
+    std::shared_ptr<const NNUELayerStacksModelV2> model;
+    if (!load_name.empty())
+    {
+        std::filesystem::path nnue_path = std::filesystem::path("../checkpoints") / load_name;
+        model = load_nnue_layerstacks_v2(nnue_path.string());
+        if (!model)
+            std::cerr << "GRAVE: continuing with the even-game heuristic instead." << std::endl;
+    }
+
+    auto player_ptr = std::make_unique<rl::players::MigoyugoGravePlayer>(
+        minimum_duration, 2, model);
+
+    // The two network heuristics are independent. The action-value priors are
+    // the paper-faithful one but cost an evaluation per legal move per node
+    // expansion; the leaf blend costs one per simulation. Start with the cheap
+    // one - see run/bench_migoyugo_grave.cpp `match` for the numbers.
+    std::string name = "GRAVE-BB";
+    if (model)
+    {
+        player_ptr->set_leaf_value_weight(0.5f);
+        name += " (nnue leaf 0.5)";
+    }
+
+    return std::make_unique<PlayerInfoFull>(std::move(player_ptr), name);
+}
+
 } // namespace rl::ui::players_utils

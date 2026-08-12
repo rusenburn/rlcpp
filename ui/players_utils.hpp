@@ -31,6 +31,9 @@ std::unique_ptr<PlayerInfoFull> get_nnue_player(rl::common::IState* state_ptr,st
 std::unique_ptr<PlayerInfoFull> get_nnue_mcts_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration);
 std::unique_ptr<PlayerInfoFull> get_nnue_layerstacks_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name);
 std::unique_ptr<PlayerInfoFull> get_nnue_layerstacks_v2_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name);
+// GRAVE on the bitboard environment. An empty load_name is valid and means
+// the even-game heuristic with no network.
+std::unique_ptr<PlayerInfoFull> get_migoyugo_grave_player(rl::common::IState* state_ptr, std::chrono::duration<int, std::milli> minimum_duration, std::string load_name);
 
 
 } // namespace rl::ui::players_utils

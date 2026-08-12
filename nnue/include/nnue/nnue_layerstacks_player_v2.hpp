@@ -31,6 +31,7 @@
 #include <common/player.hpp>
 #include <games/migoyugo_bb.hpp>
 
+#include "nnue_layerstacks_eval_v2.hpp"
 #include "nnue_layerstacks_model_v2.hpp"
 
 #include <immintrin.h>
@@ -239,15 +240,12 @@ public:
         generation_ = 0;
     }
 
-    // Bucket selection, derived from the board rather than tracked alongside
-    // the accumulator so it cannot drift. Each Migo on the board cost about
-    // one turn and each Yugo about four (three Migos consumed plus the
-    // placement). Must stay in sync with compute_bucket_index in
-    // scripts/train_nnue_layerstacks_v2.py.
+    // Bucket selection now lives in nnue_layerstacks_eval_v2.hpp so the other
+    // searches can reach it; kept here as a forwarder because run/ and wasm/
+    // call it through this class.
     static int compute_bucket_index(const mgbb::MigoyugoBB& s)
     {
-        const int turns = std::min(s.estimated_turns(), 80);
-        return std::min(turns / 10, NNUELayerStacksModelV2::NUM_BUCKETS - 1);
+        return rl::nnue::compute_bucket_index(s);
     }
 
 private:
@@ -335,26 +333,14 @@ private:
 
     // ----------------------------------------------------- accumulator ---
 
+    // The arithmetic below lives in nnue_layerstacks_eval_v2.hpp so that the
+    // GRAVE search can use the same accumulator and the same network without
+    // a second copy of the intrinsics. These are thin forwarders that supply
+    // this search's accumulator stack and current position.
+
     void init_root_accumulator()
     {
-        uint16_t feats[192];
-        const int n = root_.active_features(feats);
-
-        for (int p = 0; p < 2; ++p)
-            std::memcpy(acc_[0][p], model_->l1_bias.data(), sizeof(model_->l1_bias));
-
-        for (int i = 0; i < n; ++i)
-        {
-            add_row(acc_[0][0], feats[i]);
-            add_row(acc_[0][1], mgbb::flip_perspective(feats[i]));
-        }
-    }
-
-    void add_row(int16_t* acc, int feature)
-    {
-        const __m128i* w = reinterpret_cast<const __m128i*>(model_->l1_weights[feature].data());
-        __m128i* a = reinterpret_cast<__m128i*>(acc);
-        for (int i = 0; i < 32; ++i) a[i] = _mm_add_epi16(a[i], w[i]);
+        rl::nnue::build_accumulator(*model_, root_, acc_[0]);
     }
 
     // Writes the child accumulator while reading the parent's, so the copy is
@@ -362,131 +348,16 @@ private:
     // slot is never touched.
     void apply_delta(int parent_ply, int child_ply, const mgbb::FeatureDelta& d)
     {
-        for (int persp = 0; persp < 2; ++persp)
-        {
-            uint16_t add[mgbb::FeatureDelta::CAPACITY];
-            uint16_t sub[mgbb::FeatureDelta::CAPACITY];
-
-            if (persp == 0)
-            {
-                std::memcpy(add, d.added, sizeof(uint16_t) * d.n_added);
-                std::memcpy(sub, d.removed, sizeof(uint16_t) * d.n_removed);
-            }
-            else
-            {
-                for (int i = 0; i < d.n_added; ++i)
-                    add[i] = static_cast<uint16_t>(mgbb::flip_perspective(d.added[i]));
-                for (int i = 0; i < d.n_removed; ++i)
-                    sub[i] = static_cast<uint16_t>(mgbb::flip_perspective(d.removed[i]));
-            }
-
-            transform(acc_[child_ply][persp], acc_[parent_ply][persp],
-                add, d.n_added, sub, d.n_removed);
-        }
-    }
-
-    void transform(int16_t* __restrict dst, const int16_t* __restrict src,
-        const uint16_t* add, int na, const uint16_t* sub, int ns)
-    {
-        // 64 int16 at a time: 8 live vectors, comfortably inside the 16 XMM
-        // registers Ivy Bridge gives us, with the weight rows streamed through.
-        for (int c = 0; c < 256; c += 64)
-        {
-            const __m128i* s = reinterpret_cast<const __m128i*>(src + c);
-            __m128i v0 = _mm_load_si128(s + 0);
-            __m128i v1 = _mm_load_si128(s + 1);
-            __m128i v2 = _mm_load_si128(s + 2);
-            __m128i v3 = _mm_load_si128(s + 3);
-            __m128i v4 = _mm_load_si128(s + 4);
-            __m128i v5 = _mm_load_si128(s + 5);
-            __m128i v6 = _mm_load_si128(s + 6);
-            __m128i v7 = _mm_load_si128(s + 7);
-
-            for (int k = 0; k < na; ++k)
-            {
-                const __m128i* w = reinterpret_cast<const __m128i*>(model_->l1_weights[add[k]].data() + c);
-                v0 = _mm_add_epi16(v0, _mm_load_si128(w + 0));
-                v1 = _mm_add_epi16(v1, _mm_load_si128(w + 1));
-                v2 = _mm_add_epi16(v2, _mm_load_si128(w + 2));
-                v3 = _mm_add_epi16(v3, _mm_load_si128(w + 3));
-                v4 = _mm_add_epi16(v4, _mm_load_si128(w + 4));
-                v5 = _mm_add_epi16(v5, _mm_load_si128(w + 5));
-                v6 = _mm_add_epi16(v6, _mm_load_si128(w + 6));
-                v7 = _mm_add_epi16(v7, _mm_load_si128(w + 7));
-            }
-            for (int k = 0; k < ns; ++k)
-            {
-                const __m128i* w = reinterpret_cast<const __m128i*>(model_->l1_weights[sub[k]].data() + c);
-                v0 = _mm_sub_epi16(v0, _mm_load_si128(w + 0));
-                v1 = _mm_sub_epi16(v1, _mm_load_si128(w + 1));
-                v2 = _mm_sub_epi16(v2, _mm_load_si128(w + 2));
-                v3 = _mm_sub_epi16(v3, _mm_load_si128(w + 3));
-                v4 = _mm_sub_epi16(v4, _mm_load_si128(w + 4));
-                v5 = _mm_sub_epi16(v5, _mm_load_si128(w + 5));
-                v6 = _mm_sub_epi16(v6, _mm_load_si128(w + 6));
-                v7 = _mm_sub_epi16(v7, _mm_load_si128(w + 7));
-            }
-
-            __m128i* dv = reinterpret_cast<__m128i*>(dst + c);
-            _mm_store_si128(dv + 0, v0);
-            _mm_store_si128(dv + 1, v1);
-            _mm_store_si128(dv + 2, v2);
-            _mm_store_si128(dv + 3, v3);
-            _mm_store_si128(dv + 4, v4);
-            _mm_store_si128(dv + 5, v5);
-            _mm_store_si128(dv + 6, v6);
-            _mm_store_si128(dv + 7, v7);
-        }
+        rl::nnue::accumulator_apply_delta(*model_, acc_[child_ply], acc_[parent_ply], d);
     }
 
     // ------------------------------------------------------------- eval ---
 
-    // Identical arithmetic to NNUELayerStacksPlayer::evaluate_nnue_simd, so a
-    // v1 and a v2 export of the same checkpoint produce bit-identical values;
-    // only the clipped ReLU is vectorised and the L1 index order differs.
+    // Engine units: the raw quantized sum shifted down by EVAL_SHIFT.
     int evaluate(int ply)
     {
-        const int16_t* accumulator = acc_[ply][state_.stm];
-        const int bucket = compute_bucket_index(state_);
-        const NNUELayerStacksModelV2& m = *model_;
-
-        alignas(64) int16_t activated[256];
-        {
-            const __m128i zero = _mm_setzero_si128();
-            const __m128i c127 = _mm_set1_epi16(127);
-            const __m128i* a = reinterpret_cast<const __m128i*>(accumulator);
-            __m128i* o = reinterpret_cast<__m128i*>(activated);
-            for (int i = 0; i < 32; ++i)
-                o[i] = _mm_min_epi16(_mm_max_epi16(_mm_load_si128(a + i), zero), c127);
-        }
-
-        alignas(32) int32_t l2_out[16];
-        for (int i = 0; i < 16; ++i)
-        {
-            __m128i sum = _mm_setzero_si128();
-            const __m128i* w = reinterpret_cast<const __m128i*>(m.l2_weights[bucket][i].data());
-            const __m128i* in = reinterpret_cast<const __m128i*>(activated);
-            for (int j = 0; j < 32; ++j)
-                sum = _mm_add_epi32(sum, _mm_madd_epi16(_mm_load_si128(w + j), _mm_load_si128(in + j)));
-
-            alignas(16) int32_t parts[4];
-            _mm_store_si128(reinterpret_cast<__m128i*>(parts), sum);
-            const int32_t total = m.l2_bias[bucket][i] + parts[0] + parts[1] + parts[2] + parts[3];
-            l2_out[i] = std::clamp(total >> 7, 0, 127);
-        }
-
-        alignas(32) int32_t l3_out[32];
-        for (int i = 0; i < 32; ++i)
-        {
-            int32_t total = m.l3_bias[bucket][i];
-            for (int j = 0; j < 16; ++j) total += m.l3_weights[bucket][i][j] * l2_out[j];
-            l3_out[i] = std::clamp(total >> 7, 0, 127);
-        }
-
-        int32_t final_sum = m.out_bias[bucket];
-        for (int i = 0; i < 32; ++i) final_sum += m.out_weights[bucket][i] * l3_out[i];
-
-        return final_sum >> EVAL_SHIFT;
+        return rl::nnue::evaluate_accumulator(*model_, acc_[ply][state_.stm],
+            rl::nnue::compute_bucket_index(state_)) >> EVAL_SHIFT;
     }
 
     // ----------------------------------------------------------- search ---
