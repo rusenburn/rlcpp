@@ -83,7 +83,7 @@ ConcurrentPlayer::ConcurrentPlayer(
     cpuct_{ cpuct },
     max_async_simulations_{ max_async_simulations },
     dirichlet_epsilon_{dirichlet_epsilon},
-    dirichlet_alpha_{dirichlet_alpha_},
+    dirichlet_alpha_{dirichlet_alpha},
     default_visits_{ default_visits },
     default_wins_{ default_wins }
 {

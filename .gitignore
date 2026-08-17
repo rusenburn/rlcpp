@@ -73,3 +73,11 @@ build
 checkpoints/
 
 scripts/*.bin
+
+# Exported networks are runtime assets, like the NNUE .bin files.
+*.onnx
+
+# Prebuilt ONNX Runtime, unpacked from the upstream release tarball rather than
+# vendored as a submodule (it is a binary distribution, not source).
+# See onnxeval/CMakeLists.txt for how it is located.
+external/onnxruntime/

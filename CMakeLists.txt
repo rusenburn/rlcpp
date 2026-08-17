@@ -62,6 +62,12 @@ add_subdirectory(games)
 add_subdirectory(players)
 add_subdirectory(nnue)
 
+# The ONNX evaluator is added unconditionally: it is the one inference path that
+# does not need libtorch, which is what makes it usable from wasm/ later. The
+# subdirectory removes itself when ONNX Runtime is not installed, so consumers
+# must guard on if(TARGET onnxeval).
+add_subdirectory(onnxeval)
+
 # Only add components that require deep learning for non-WASM builds
 if(NOT EMSCRIPTEN)
     add_subdirectory(deeplearning)

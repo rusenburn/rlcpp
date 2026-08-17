@@ -451,6 +451,39 @@ if (MSVC)
 endif (MSVC)
 
 
+# onnx_parity - checks the ONNX evaluator against the libtorch one on the same
+# weights, and drives an unmodified Amcts2 with each. Only exists when ONNX
+# Runtime was found; see onnxeval/CMakeLists.txt.
+if(TARGET onnxeval)
+    set(This onnx_parity)
+    project(${This})
+
+    find_package(Torch REQUIRED)
+
+    add_executable(${This} onnx_parity.cpp)
+    set_property(TARGET ${This} PROPERTY CXX_STANDARD 17)
+
+    target_link_libraries(${PROJECT_NAME} PUBLIC
+        onnxeval
+        deeplearning
+        games
+        "${TORCH_LIBRARIES}")
+
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+
+    if (MSVC)
+      file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
+      add_custom_command(TARGET ${PROJECT_NAME}
+                         POST_BUILD
+                         COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                         ${TORCH_DLLS}
+                         $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+    endif (MSVC)
+endif()
+
+
 # test_wasm_api - drives the WebAssembly C ABI natively, so its semantics are
 # tested in a debugger before a browser is involved. Links the same translation
 # unit emcc compiles.

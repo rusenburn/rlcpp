@@ -39,25 +39,49 @@
     <aside class="panel">
       <div class="card">
         <h2>Game</h2>
+        <!-- One selector per colour. Every arrangement the old Mode/You-play
+             pair could express is a combination of these two, plus the ones it
+             could not: NNUE against AlphaYugo, and either engine against
+             itself. -->
         <label class="row">
-          <span>Mode</span>
-          <select id="mode">
-            <option value="human-bot">You vs Engine</option>
-            <option value="bot-bot">Engine vs Engine</option>
-            <option value="human-human">Two players</option>
+          <span>White plays</span>
+          <select id="engine-w">
+            <option value="human">Human</option>
+            <option value="nnue">NNUE</option>
+            <option value="az">AlphaYugo</option>
           </select>
         </label>
-        <label class="row" id="seat-row">
-          <span>You play</span>
-          <select id="seat">
-            <option value="white">White (first)</option>
-            <option value="black">Black</option>
+        <label class="row">
+          <span>Black plays</span>
+          <select id="engine-b">
+            <option value="human">Human</option>
+            <option value="nnue" selected>NNUE</option>
+            <option value="az">AlphaYugo</option>
           </select>
         </label>
+        <!-- Auto measures both backends at load and keeps the faster, which is
+             right on unknown hardware but wrong if the GPU happens to be busy
+             during that one measurement - it would pin the session to CPU for
+             good. The override exists so that is recoverable without a reload. -->
+        <label class="row" id="az-backend-row" hidden>
+          <span>AlphaYugo runs on</span>
+          <select id="az-backend">
+            <option value="auto">Auto (measure)</option>
+            <option value="webgpu">GPU (WebGPU)</option>
+            <option value="wasm">CPU</option>
+          </select>
+        </label>
+        <!-- Persistent, unlike #status, which render() rewrites on every move.
+             Whether AlphaYugo got the GPU or fell back to CPU is a fact about
+             the session worth keeping on screen - it is a 30x difference. -->
+        <p class="az-status" id="az-status" hidden></p>
         <label class="row" id="bot-row">
           <span>Think time</span>
           <span class="slider">
-            <input id="think" type="range" min="100" max="3000" step="100" value="1000">
+            <!-- Shared by both engines, so engine vs engine is a fair match.
+                 Up to 20 s because AlphaYugo works in seconds per move, not
+                 milliseconds. -->
+            <input id="think" type="range" min="100" max="20000" step="100" value="1000">
             <output id="think-label">1.0 s</output>
           </span>
         </label>
@@ -71,12 +95,16 @@
       </div>
 
       <div class="card">
-        <h2>Engine</h2>
+        <!-- The two engines report in different units, so the labels are set
+             from script per engine rather than being fixed here: NNUE has a
+             depth and counts nodes, AlphaYugo has neither and counts network
+             evaluations. #eng-name says whose numbers these are. -->
+        <h2>Engine <span id="eng-name" class="eng-name"></span></h2>
         <dl class="stats">
-          <div><dt>Depth</dt><dd id="eng-depth">—</dd></div>
-          <div><dt title="Positive favours White, negative favours Black">Score</dt><dd id="eng-score">—</dd></div>
-          <div><dt>Nodes</dt><dd id="eng-nodes">—</dd></div>
-          <div><dt>Speed</dt><dd id="eng-nps">—</dd></div>
+          <div><dt id="lbl-depth">Depth</dt><dd id="eng-depth">—</dd></div>
+          <div><dt id="lbl-score" title="Positive favours White, negative favours Black">Score</dt><dd id="eng-score">—</dd></div>
+          <div><dt id="lbl-nodes">Nodes</dt><dd id="eng-nodes">—</dd></div>
+          <div><dt id="lbl-speed">Speed</dt><dd id="eng-nps">—</dd></div>
         </dl>
       </div>
 

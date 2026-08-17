@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migoyugo &mdash; AlphaZero bot</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1c1f26; --line: #2b3038;
+    --text: #e6e8ec; --muted: #939aa6;
+    --white: #eceff4; --black: #24272e; --accent: #6ea8fe; --warn: #f0a05a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
+    display: flex; flex-wrap: wrap; gap: 24px; justify-content: center;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+
+  #board {
+    display: grid; grid-template-columns: repeat(8, 52px); grid-auto-rows: 52px;
+    gap: 2px; background: var(--line); padding: 2px; border-radius: 6px;
+  }
+  .cell {
+    background: #333842; border: 0; padding: 0; position: relative;
+    display: flex; align-items: center; justify-content: center; cursor: default;
+    border-radius: 3px;
+  }
+  .cell.legal { cursor: pointer; }
+  .cell.legal:hover { background: #3d4450; }
+  .cell.last { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .piece { width: 34px; height: 34px; border-radius: 50%; }
+  .piece.w { background: var(--white); }
+  .piece.b { background: var(--black); border: 1px solid #4a4f59; }
+  .piece.yugo { border-radius: 6px; }
+  /* MCTS visit share from the last search, painted as a bar at the cell foot. */
+  .visits {
+    position: absolute; left: 3px; right: 3px; bottom: 3px; height: 3px;
+    background: var(--accent); border-radius: 2px; opacity: .85;
+  }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px; width: 280px;
+  }
+  .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+  .row span:first-child { color: var(--muted); }
+  .row span:last-child { font-variant-numeric: tabular-nums; }
+  button {
+    background: #2b3038; color: var(--text); border: 1px solid #3a404a;
+    border-radius: 6px; padding: 8px 12px; cursor: pointer; font: inherit;
+  }
+  button:hover:not(:disabled) { background: #353c47; }
+  button:disabled { opacity: .45; cursor: default; }
+  .controls { display: flex; gap: 8px; margin-top: 12px; }
+  .controls button { flex: 1; }
+  label { display: block; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  input[type=range] { width: 100%; }
+  #status { margin-top: 12px; font-size: 13px; min-height: 20px; }
+  #status.err { color: var(--warn); }
+  code { background: #24282f; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div>
+  <h1>Migoyugo &mdash; AlphaZero bot</h1>
+  <div class="sub">Amcts2 in WebAssembly, residual network on WebGPU</div>
+  <div id="board"></div>
+</div>
+
+<div class="panel">
+  <div class="row"><span>backend</span><span id="provider">starting…</span></div>
+  <div class="row"><span>to move</span><span id="stm">&mdash;</span></div>
+  <div class="row"><span>last search</span><span id="elapsed">&mdash;</span></div>
+  <div class="row"><span>evaluation</span><span id="eval">&mdash;</span></div>
+  <div class="row"><span>moves</span><span id="moves">0</span></div>
+
+  <label>think time: <b id="timeLabel">3.0</b> s</label>
+  <input type="range" id="time" min="500" max="20000" step="500" value="3000">
+
+  <label>leaves per GPU batch: <b id="batchLabel">16</b></label>
+  <input type="range" id="batch" min="1" max="64" step="1" value="16">
+
+  <div class="controls">
+    <button id="newGame">New game</button>
+    <button id="undo">Undo</button>
+  </div>
+  <div class="controls">
+    <button id="botMove">Bot move</button>
+  </div>
+
+  <div id="status">Loading the network (40 MB)…</div>
+</div>
+
+<!-- Defines parseAzSnapshot; shared verbatim with az_worker.js, which pulls it
+     in through importScripts. -->
+<script src="az_snapshot.js"></script>
+<script>
+'use strict';
+
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const worker = new Worker('az_worker.js');
+
+let epoch = 0;
+let ready = false;
+let busy = false;
+let lastProbs = null;
+let state = null;
+
+const cells = [];
+for (let i = 0; i < 64; i++) {
+  const c = document.createElement('button');
+  c.className = 'cell';
+  c.addEventListener('click', () => play(i));
+  boardEl.appendChild(c);
+  cells.push(c);
+}
+
+function setStatus(text, isError = false) {
+  statusEl.textContent = text;
+  statusEl.className = isError ? 'err' : '';
+}
+
+function setBusy(v) {
+  busy = v;
+  for (const id of ['newGame', 'undo', 'botMove']) {
+    document.getElementById(id).disabled = v || !ready;
+  }
+}
+
+function render() {
+  if (!state) return;
+  const maxVisit = lastProbs ? Math.max(...lastProbs) : 0;
+
+  for (let i = 0; i < 64; i++) {
+    const el = cells[i];
+    el.innerHTML = '';
+    el.className = 'cell';
+
+    const code = state.cells[i];
+    if (code) {
+      const p = document.createElement('div');
+      const isWhite = code === 1 || code === 2;
+      const isYugo = code === 2 || code === 4;
+      p.className = `piece ${isWhite ? 'w' : 'b'}${isYugo ? ' yugo' : ''}`;
+      el.appendChild(p);
+    } else if (state.legal[i] && state.status === 0) {
+      el.classList.add('legal');
+    }
+    if (i === state.lastMove) el.classList.add('last');
+
+    // Only meaningful where the bot actually searched.
+    if (lastProbs && maxVisit > 0 && lastProbs[i] > 0.001 && !code) {
+      const bar = document.createElement('div');
+      bar.className = 'visits';
+      bar.style.transform = `scaleX(${lastProbs[i] / maxVisit})`;
+      bar.style.transformOrigin = 'left';
+      el.appendChild(bar);
+    }
+  }
+
+  document.getElementById('stm').textContent = state.stm === 0 ? 'White' : 'Black';
+  document.getElementById('moves').textContent = state.moveCount;
+
+  if (state.status === 1) {
+    const w = state.winner;
+    setStatus(w === 255 ? 'Draw.' : `${w === 0 ? 'White' : 'Black'} wins.`);
+  }
+}
+
+function play(sq) {
+  if (!ready || busy || !state || state.status !== 0 || !state.legal[sq]) return;
+  lastProbs = null;
+  worker.postMessage({ type: 'play', epoch: ++epoch, sq });
+}
+
+worker.onmessage = (e) => {
+  const msg = e.data;
+  if (msg.epoch !== undefined && msg.epoch < epoch && msg.type === 'state') return;
+
+  switch (msg.type) {
+    case 'ready':
+      ready = true;
+      setBusy(false);
+      document.getElementById('provider').textContent = msg.provider;
+      if (msg.provider.startsWith('webgpu')) {
+        setStatus(`Ready — running on the GPU.${msg.detail ? ' ' + msg.detail : ''}`);
+      } else {
+        // Say why, not just that. The reason determines the fix.
+        setStatus(`Running on CPU. WebGPU was refused: ${msg.detail || 'no reason given'}`, true);
+      }
+      break;
+
+    case 'state':
+      state = parseAzSnapshot(msg.snapshot);
+      if (msg.probs) lastProbs = msg.probs;
+      if (msg.elapsedMs !== undefined) {
+        document.getElementById('elapsed').textContent = `${msg.elapsedMs.toFixed(0)} ms`;
+      }
+      if (msg.evaluation !== undefined) {
+        document.getElementById('eval').textContent = msg.evaluation.toFixed(3);
+      }
+      setBusy(false);
+      // render() only writes status when the game is over, so anything set
+      // earlier - "Thinking…" in particular - has to be cleared here or it
+      // sticks around after the move has already been played.
+      if (state.status === AZ_STATUS_PLAYING) {
+        if (msg.botMove !== undefined) {
+          const secs = (msg.elapsedMs / 1000).toFixed(1);
+          const ev = msg.evaluation >= 0 ? `+${msg.evaluation.toFixed(2)}` : msg.evaluation.toFixed(2);
+          setStatus(`Bot moved in ${secs} s (eval ${ev}). Your move.`);
+        } else {
+          setStatus('Your move.');
+        }
+      }
+      render();
+      break;
+
+    case 'thinking':
+      setStatus('Thinking…');
+      setBusy(true);
+      break;
+
+    case 'rejected':
+      setStatus(msg.reason, true);
+      setBusy(false);
+      break;
+
+    case 'error':
+      setStatus(msg.message, true);
+      setBusy(false);
+      break;
+  }
+};
+
+document.getElementById('newGame').addEventListener('click', () => {
+  lastProbs = null;
+  worker.postMessage({ type: 'newGame', epoch: ++epoch });
+});
+document.getElementById('undo').addEventListener('click', () => {
+  lastProbs = null;
+  worker.postMessage({ type: 'undo', epoch: ++epoch, plies: 1 });
+});
+document.getElementById('botMove').addEventListener('click', () => {
+  worker.postMessage({ type: 'botMove', epoch: ++epoch });
+});
+
+const timeEl = document.getElementById('time');
+timeEl.addEventListener('input', () => {
+  document.getElementById('timeLabel').textContent = (timeEl.value / 1000).toFixed(1);
+  worker.postMessage({ type: 'setTime', ms: +timeEl.value });
+});
+const batchEl = document.getElementById('batch');
+batchEl.addEventListener('input', () => {
+  document.getElementById('batchLabel').textContent = batchEl.value;
+  // Changing this rebuilds the ONNX session, so the next search recompiles
+  // shaders once. Warn rather than let it look like a stall.
+  setStatus('Batch changed — the next search will recompile GPU shaders once.');
+  worker.postMessage({ type: 'setBatch', batch: +batchEl.value });
+});
+
+setBusy(true);
+worker.postMessage({
+  type: 'init', epoch: ++epoch,
+  modelUrl: 'migoyugo_az.onnx', thinkMs: 3000, batch: 16,
+});
+</script>
+</body>
+</html>

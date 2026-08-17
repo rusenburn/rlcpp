@@ -19,13 +19,17 @@ import { Sound } from './sound.js';
 
 const $ = (id) => document.getElementById(id);
 
-const MODE_HUMAN_BOT = 'human-bot';
-const MODE_BOT_BOT = 'bot-bot';
-const MODE_HUMAN_HUMAN = 'human-human';
+// Who owns a colour. HUMAN/NNUE/AZ per side replaces the old mode enum: every
+// arrangement it could express is a pair of these, plus the ones it could not
+// (NNUE vs AlphaYugo, and either engine against itself).
+const HUMAN = 'human';
+const NNUE = 'nnue';
+const AZ = 'az';
+
+const ENGINE_LABEL = { [NNUE]: 'NNUE', [AZ]: 'AlphaYugo' };
 
 const state = {
-  mode: MODE_HUMAN_BOT,
-  humanSeat: WHITE,
+  engines: { [WHITE]: HUMAN, [BLACK]: NNUE },
   epoch: 0,
   snapshot: null,
   info: null,
@@ -33,16 +37,22 @@ const state = {
   // score is relative to that colour, and it is NOT the snapshot's stm once
   // the move has been played.
   infoStm: null,
+  // Which engine produced `info`, so the panel can label its units. NNUE has a
+  // depth and counts nodes; AlphaYugo has neither.
+  infoEngine: null,
   moves: [],
   thinking: false,
-  ready: false,
-  running: false, // bot-vs-bot loop is live
+  ready: false,     // NNUE worker
+  azReady: false,   // AlphaYugo worker, many seconds later - 40 MB plus shaders
+  azLoading: false,
+  running: false,   // engine-vs-engine loop is live
   hint: -1,
 };
 
 const sound = new Sound();
 let board = null;
 let worker = null;
+let azWorker = null;
 
 // --- worker plumbing --------------------------------------------------------
 
@@ -58,8 +68,43 @@ function spawnWorker() {
   });
 }
 
+// Spawned on demand, the first time a side is set to AlphaYugo. Its network is
+// 40 MB and its WebGPU shaders take seconds to compile, so anyone who only ever
+// plays the NNUE engine or another human must not pay for it.
+function spawnAzWorker() {
+  if (azWorker || state.azLoading) return;
+  state.azLoading = true;
+  setAzStatus('AlphaYugo: loading the network (40 MB)…');
+
+  azWorker = new Worker('az_worker.js');
+  azWorker.onmessage = onAzMessage;
+  azWorker.onerror = (e) => {
+    state.azLoading = false;
+    setAzStatus(`AlphaYugo failed to start: ${e.message || 'worker error'}`, true);
+  };
+  azWorker.postMessage({
+    type: 'init',
+    epoch: state.epoch,
+    modelUrl: 'migoyugo_az.onnx',
+    thinkMs: Number($('think').value),
+    batch: 16,
+    backend: $('az-backend').value,
+  });
+}
+
 function send(type, payload = {}) {
   worker.postMessage({ type, epoch: state.epoch, ...payload });
+}
+
+function azSend(type, payload = {}) {
+  azWorker.postMessage({ type, epoch: state.epoch, ...payload });
+}
+
+function setAzStatus(text, isError = false) {
+  const el = $('az-status');
+  el.hidden = !text;
+  el.textContent = text;
+  el.classList.toggle('error', isError);
 }
 
 function bumpEpoch() {
@@ -124,6 +169,7 @@ function onWorkerMessage(e) {
       const info = parseInfo(msg.info);
       if (msg.botMove !== undefined && (info.nodes > 0 || info.depth > 0)) {
         state.info = info;
+        state.infoEngine = NNUE;
         // The search ran before the move, so it scored for the mover, who is
         // no longer the side to move.
         state.infoStm = 1 - state.snapshot.stm;
@@ -135,6 +181,67 @@ function onWorkerMessage(e) {
       scheduleNext();
       break;
     }
+  }
+}
+
+// AlphaYugo replies. Deliberately a separate handler from onWorkerMessage: this
+// worker is not the authoritative position, only a move oracle, so its `state`
+// messages (which az.html uses) are ignored here.
+//
+// Its failures are also not fatal() material - the NNUE engine and the board are
+// still perfectly usable if the GPU path dies, so this reports and stops rather
+// than throwing up the overlay.
+function onAzMessage(e) {
+  const msg = e.data;
+
+  if (msg.type === 'ready') {
+    state.azLoading = false;
+    state.azReady = true;
+    setAzStatus(`AlphaYugo: ready on ${msg.provider}.`);
+    azWorker.postMessage({ type: 'setTime', ms: Number($('think').value) });
+    render();
+    scheduleNext();
+    return;
+  }
+
+  if (msg.type === 'error') {
+    state.azLoading = false;
+    state.thinking = false;
+    state.running = false;
+    setAzStatus(`AlphaYugo: ${msg.message}`, true);
+    render();
+    return;
+  }
+
+  if (msg.epoch !== state.epoch) return;
+
+  switch (msg.type) {
+    case 'thinking':
+      state.thinking = true;
+      render();
+      break;
+
+    case 'rejected':
+      state.thinking = false;
+      state.running = false;
+      setAzStatus(`AlphaYugo: ${msg.reason}`, true);
+      render();
+      break;
+
+    case 'azMove':
+      // Record what it thought, then play the move through the NNUE module.
+      // That module owns the position of record and is the only source of a
+      // snapshot rich enough for the board - captures, win lines, forbidden
+      // squares - so every move, whoever chose it, lands the same way.
+      state.info = {
+        evaluation: msg.evaluation,
+        evaluations: msg.evaluations,
+        elapsedMs: msg.elapsedMs,
+      };
+      state.infoEngine = AZ;
+      state.infoStm = state.snapshot ? state.snapshot.stm : null;
+      send('play', { sq: msg.sq });
+      break;
   }
 }
 
@@ -176,19 +283,26 @@ function playSounds(previous) {
 
   if (s.status !== PLAYING) {
     if (s.winner === null) sound.draw();
-    else if (state.mode === MODE_HUMAN_BOT) {
-      s.winner === state.humanSeat ? sound.win() : sound.lose();
+    else if (soloHuman()) {
+      s.winner === humanSeat() ? sound.win() : sound.lose();
     } else sound.win();
   }
 }
 
 // --- turn logic -------------------------------------------------------------
 
-function seatIsBot(seat) {
-  if (state.mode === MODE_HUMAN_HUMAN) return false;
-  if (state.mode === MODE_BOT_BOT) return true;
-  return seat !== state.humanSeat;
+function engineFor(seat) { return state.engines[seat]; }
+function seatIsBot(seat) { return engineFor(seat) !== HUMAN; }
+
+// True when a human is sitting at exactly one side - the only arrangement where
+// "you won" / "you lost" and taking back a pair of plies make sense.
+function soloHuman() {
+  const w = engineFor(WHITE) === HUMAN;
+  const b = engineFor(BLACK) === HUMAN;
+  return w !== b;
 }
+function humanSeat() { return engineFor(WHITE) === HUMAN ? WHITE : BLACK; }
+function bothEngines() { return !(engineFor(WHITE) === HUMAN || engineFor(BLACK) === HUMAN); }
 
 function scheduleNext() {
   const s = state.snapshot;
@@ -197,8 +311,22 @@ function scheduleNext() {
     render();
     return;
   }
-  if (state.mode === MODE_BOT_BOT && !state.running) return;
-  if (!seatIsBot(s.stm)) return;
+  // Engine vs engine only advances while the Start button says so; with a human
+  // on one side, the engine always answers.
+  if (bothEngines() && !state.running) return;
+
+  const engine = engineFor(s.stm);
+  if (engine === HUMAN) return;
+
+  if (engine === AZ) {
+    // Still fetching the 40 MB network or compiling shaders. scheduleNext is
+    // called again from the ready handler.
+    if (!state.azReady) { spawnAzWorker(); return; }
+    // The oracle keeps no position of its own here: hand it the move list and
+    // let it resync before it searches.
+    azSend('suggest', { moves: state.moves.slice() });
+    return;
+  }
   send('botMove');
 }
 
@@ -210,7 +338,8 @@ function newGame() {
   state.snapshot = null;
   state.info = null;
   state.infoStm = null;
-  state.running = state.mode === MODE_BOT_BOT ? state.running : false;
+  state.infoEngine = null;
+  state.running = bothEngines() ? state.running : false;
   send('newGame');
 }
 
@@ -225,8 +354,8 @@ function play(sq) {
 function undo() {
   const s = state.snapshot;
   if (!s || !s.canUndo) return;
-  // In Human vs Bot, take back the pair so it is the human's turn again.
-  const plies = state.mode === MODE_HUMAN_BOT && s.moveCount >= 2 && seatIsBot(1 - s.stm) ? 2 : 1;
+  // With a human on one side only, take back the pair so it is their turn again.
+  const plies = soloHuman() && s.moveCount >= 2 && seatIsBot(1 - s.stm) ? 2 : 1;
   bumpEpoch();
   state.running = false;
   send('undo', { plies });
@@ -284,17 +413,12 @@ function render() {
   $('turn-w').classList.toggle('active', s.status === PLAYING && s.stm === WHITE);
   $('turn-b').classList.toggle('active', s.status === PLAYING && s.stm === BLACK);
 
-  const i = state.info;
-  const hasInfo = i && i.depth > 0 && state.infoStm !== null;
-  $('eng-depth').textContent = hasInfo ? String(i.depth) : '—';
-  $('eng-score').textContent = hasInfo ? formatScore(toWhiteScore(i.score, state.infoStm)) : '—';
-  $('eng-nodes').textContent = hasInfo ? Math.round(i.nodes).toLocaleString() : '—';
-  $('eng-nps').textContent = hasInfo ? `${Math.round(i.nps / 1000).toLocaleString()}k` : '—';
+  renderEngineInfo();
 
   $('btn-undo').disabled = !s.canUndo || state.thinking;
   $('btn-hint').disabled = s.status !== PLAYING || state.thinking;
   $('btn-stop').hidden = !(state.thinking || state.running);
-  $('btn-run').hidden = state.mode !== MODE_BOT_BOT || state.running || s.status !== PLAYING;
+  $('btn-run').hidden = !bothEngines() || state.running || s.status !== PLAYING;
 
   renderMoveList(s);
 
@@ -305,9 +429,51 @@ function render() {
   } else {
     $('banner').hidden = true;
     if (state.thinking) setStatus('Thinking…');
-    else if (seatIsBot(s.stm)) setStatus('Engine to move.');
+    else if (seatIsBot(s.stm)) setStatus(`${ENGINE_LABEL[engineFor(s.stm)]} to move.`);
     else setStatus(`${s.stm === WHITE ? 'White' : 'Black'} to move.`);
   }
+}
+
+// The two engines have nothing in common numerically: NNUE searches to a depth
+// and counts alpha-beta nodes in engine units of 1/1024; AlphaYugo has no depth
+// at all, scores in [-1, 1], and counts network evaluations. So the labels move
+// with the engine rather than the numbers being forced into one shape.
+function renderEngineInfo() {
+  const i = state.info;
+  const engine = state.infoEngine;
+  const blank = () => {
+    $('eng-name').textContent = '';
+    for (const id of ['eng-depth', 'eng-score', 'eng-nodes', 'eng-nps']) $(id).textContent = '—';
+  };
+
+  if (!i || state.infoStm === null || !engine) { blank(); return; }
+  $('eng-name').textContent = ENGINE_LABEL[engine];
+
+  if (engine === AZ) {
+    $('lbl-depth').textContent = 'Depth';
+    $('lbl-nodes').textContent = 'Evals';
+    $('lbl-speed').textContent = 'Speed';
+    // Depth is meaningless for a Monte-Carlo search; say so rather than invent one.
+    $('eng-depth').textContent = 'n/a';
+    // Same sign convention as the NNUE score: positive favours White.
+    const white = toWhiteScore(i.evaluation, state.infoStm);
+    $('eng-score').textContent = `${white >= 0 ? '+' : ''}${white.toFixed(3)}`;
+    $('eng-nodes').textContent = i.evaluations.toLocaleString();
+    const secs = i.elapsedMs / 1000;
+    $('eng-nps').textContent = secs > 0 ? `${Math.round(i.evaluations / secs).toLocaleString()} ev/s` : '—';
+    return;
+  }
+
+  // A move found without searching - an instant Igo, or the only legal move -
+  // reports no depth and no nodes.
+  if (!(i.depth > 0)) { blank(); return; }
+  $('lbl-depth').textContent = 'Depth';
+  $('lbl-nodes').textContent = 'Nodes';
+  $('lbl-speed').textContent = 'Speed';
+  $('eng-depth').textContent = String(i.depth);
+  $('eng-score').textContent = formatScore(toWhiteScore(i.score, state.infoStm));
+  $('eng-nodes').textContent = Math.round(i.nodes).toLocaleString();
+  $('eng-nps').textContent = `${Math.round(i.nps / 1000).toLocaleString()}k n/s`;
 }
 
 function renderMoveList(s) {
@@ -332,10 +498,27 @@ function renderMoveList(s) {
 
 // --- wiring -----------------------------------------------------------------
 
-function applyMode() {
-  state.mode = $('mode').value;
-  $('seat-row').hidden = state.mode !== MODE_HUMAN_BOT;
-  $('bot-row').hidden = state.mode === MODE_HUMAN_HUMAN;
+function applySeats() {
+  state.engines[WHITE] = $('engine-w').value;
+  state.engines[BLACK] = $('engine-b').value;
+
+  // The think-time row is pointless with no engine on the board.
+  $('bot-row').hidden = !seatIsBot(WHITE) && !seatIsBot(BLACK);
+
+  // Orient the board for the only human, if there is exactly one.
+  if (soloHuman()) {
+    const flip = humanSeat() === BLACK;
+    board.setFlipped(flip);
+    $('opt-flip').checked = flip;
+  }
+
+  // Start fetching the network as soon as a side is set to AlphaYugo, rather
+  // than at the moment it is first asked to move - the 40 MB and the shader
+  // compile would otherwise land as a stall mid-game.
+  const azInPlay = engineFor(WHITE) === AZ || engineFor(BLACK) === AZ;
+  $('az-backend-row').hidden = !azInPlay;
+  if (azInPlay) spawnAzWorker();
+
   bumpEpoch();
   state.running = false;
   if (state.snapshot) { render(); scheduleNext(); }
@@ -344,18 +527,26 @@ function applyMode() {
 function init() {
   board = new Board($('board'), play);
 
-  $('mode').addEventListener('change', () => { applyMode(); newGame(); });
-  $('seat').addEventListener('change', () => {
-    state.humanSeat = $('seat').value === 'black' ? BLACK : WHITE;
-    board.setFlipped(state.humanSeat === BLACK);
-    $('opt-flip').checked = state.humanSeat === BLACK;
-    newGame();
+  $('engine-w').addEventListener('change', () => { applySeats(); newGame(); });
+  $('engine-b').addEventListener('change', () => { applySeats(); newGame(); });
+
+  $('az-backend').addEventListener('change', () => {
+    // The backend is fixed when the ONNX session is created, so switching means
+    // a fresh worker: a new session, a new warm-up, another 40 MB parse.
+    if (azWorker) { azWorker.terminate(); azWorker = null; }
+    state.azReady = false;
+    state.azLoading = false;
+    state.running = false;
+    bumpEpoch();
+    spawnAzWorker();
   });
 
   $('think').addEventListener('input', () => {
     const ms = Number($('think').value);
     $('think-label').textContent = ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`;
+    // Both engines share the clock, so an engine-vs-engine game is a fair test.
     worker.postMessage({ type: 'setTime', ms });
+    if (azWorker && state.azReady) azWorker.postMessage({ type: 'setTime', ms });
   });
 
   $('btn-new').addEventListener('click', () => { sound.resume(); newGame(); });
@@ -386,7 +577,7 @@ function init() {
     if (document.hidden && state.running) stop();
   });
 
-  applyMode();
+  applySeats();
   const ms = Number($('think').value);
   $('think-label').textContent = ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`;
 

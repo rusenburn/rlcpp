@@ -3,19 +3,34 @@ cmake_minimum_required(VERSION 3.10.2 FATAL_ERROR)
 set(This players)
 project(${This})
 
-# Exclude problematic sources for WASM builds (structured binding and reference issues)
+# AMCTS2 and the evaluator interface build everywhere, including WASM: the
+# browser's ONNX bot is an Amcts2 driven by an OnnxEvaluator.
+#
+# These used to sit in the NOT EMSCRIPTEN list below, described as having
+# "structured binding issues". They do not - compiling all four under emcc 6.0.6
+# produces warnings only, no errors. Whatever the original breakage was, it is
+# gone.
+#
+# Note this is Amcts2 itself, not Amcts2Player: amcts2_player.cpp also defines
+# ConcurrentPlayer, which drags in ConcurrentAmcts and std::thread and would make
+# the WASM link need -pthread for no benefit. The wasm shim constructs Amcts2
+# directly, the way run/onnx_parity.cpp does.
+set(PORTABLE_SEARCH_SOURCES
+    src/evaluator.cpp
+    src/bandits/amcts2/amcts2.cpp
+    src/bandits/amcts2/amcts2_node.cpp
+    )
+
+# Still native-only. Everything here needs threads or has not been tried under
+# emcc; none of it is on the browser path.
 if(NOT EMSCRIPTEN)
     set(EXCLUDED_SOURCES
-        # AMCTS2 sources (structured binding issues)
-        src/bandits/amcts2/amcts2.cpp
-        src/bandits/amcts2/amcts2_node.cpp
         src/bandits/amcts2/concurrent_amcts.cpp
         src/amcts_player.cpp
         src/amcts.cpp
         src/amcts2_player.cpp
         src/concurrent_search_tree.cpp
         src/evaluator_player.cpp
-        src/evaluator.cpp
         # LM-MCTS sources (reference binding issues)
         src/bandits/lm_mcts/lm_mcts_node.cpp
         src/bandits/lm_mcts/lm_mcts.cpp
@@ -24,6 +39,7 @@ if(NOT EMSCRIPTEN)
 endif()
 
 set(SourceFiles
+    ${PORTABLE_SEARCH_SOURCES}
     ${EXCLUDED_SOURCES}
     src/bandits/grave/g_node.cpp
     src/bandits/grave/g.cpp

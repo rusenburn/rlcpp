@@ -357,6 +357,19 @@ select { cursor: pointer; min-width: 150px; }
 .check:last-child { margin-bottom: 0; }
 .check input { accent-color: var(--accent); width: 15px; height: 15px; }
 
+/* AlphaYugo's backend and load state. Survives render(), which rewrites the
+   main status line on every move. */
+.az-status { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.az-status.error { color: var(--danger, #f0a05a); }
+
+/* Which engine the numbers below belong to. The two report in different units,
+   so the panel is ambiguous without it. */
+.eng-name {
+  font-size: 11px; font-weight: 500; color: var(--muted);
+  text-transform: none; letter-spacing: 0;
+}
+.eng-name:not(:empty)::before { content: "— "; }
+
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
 .stats div { display: flex; flex-direction: column; gap: 2px; }
 .stats dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
