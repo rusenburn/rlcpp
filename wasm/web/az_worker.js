@@ -46,6 +46,10 @@ const ERRORS = {
 };
 const describe = (code) => ERRORS[String(code)] || `error ${code}`;
 
+// Must match kMaxPlies in migoyugo_az_wasm.cpp. Not 64: promotion recycles
+// squares, so a game outruns the board size.
+const MAX_PLIES = 255;
+
 const OBSERVATION_SIZE = 4 * 8 * 8;
 const N_ACTIONS = 64;
 
@@ -226,7 +230,7 @@ async function boot({ modelUrl, thinkMs, batch, backend }) {
   const rc = mod._mgy_az_init(thinkMs | 0, batch | 0);
   if (rc !== OK) throw new Error(`the engine failed to start: ${describe(rc)}`);
 
-  movePtr = mod._malloc(64); // a game is at most 64 plies
+  movePtr = mod._malloc(MAX_PLIES); // scratch for load_moves, allocated once
   snapLen = mod._mgy_az_snapshot_size();
   if (snapLen !== AZ_SNAPSHOT_SIZE) {
     throw new Error(`snapshot size ${snapLen} does not match az_snapshot.js (${AZ_SNAPSHOT_SIZE})`);
@@ -295,7 +299,7 @@ self.onmessage = async (e) => {
       // rich snapshot that drives the board keeps coming from one place.
       case 'suggest': {
         const moves = msg.moves || [];
-        if (moves.length > 64) {
+        if (moves.length > MAX_PLIES) {
           postMessage({ type: 'error', epoch, message: `move list too long (${moves.length})` });
           break;
         }

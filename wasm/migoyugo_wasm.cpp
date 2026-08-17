@@ -206,7 +206,7 @@ public:
     // recovery and share-a-position possible. Validates every move.
     int load_moves(const uint8_t* data, int n)
     {
-        if (n < 0 || n > 64 || (n > 0 && !data)) return kErrRange;
+        if (n < 0 || n > 255 || (n > 0 && !data)) return kErrRange; // plies, not squares: promotion recycles squares
         const std::vector<uint8_t> wanted(data, data + n);
         reset();
         for (uint8_t sq : wanted)

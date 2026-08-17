@@ -65,6 +65,13 @@ constexpr float kDefaultWins = -1.0f;
 // Floor on simulations per move, whatever the clock says. See mgy_az_bot_suggest.
 constexpr int kMinSimulations = 1;
 
+// Maximum plies in a game, which is NOT the number of squares. Promotion clears
+// up to 12 Migos, so those squares come back into play and a game runs past 64
+// moves - 65 was hit in ordinary play, and capping at 64 rejected the position.
+// Only Yugos are permanent, so the board does fill eventually. 255 is the
+// ceiling the wire format allows anyway: AzSnapshot::move_count is a uint8_t.
+constexpr int kMaxPlies = 255;
+
 #pragma pack(push, 1)
 // Deliberately smaller than migoyugo_wasm.cpp's Snapshot: single-byte fields,
 // no multi-byte values, so JavaScript reads the position in one slice with no
@@ -286,7 +293,7 @@ EMSCRIPTEN_KEEPALIVE int mgy_az_undo(int plies)
 /// MigoyugoBB and MigoyugoState disagree about legality.
 EMSCRIPTEN_KEEPALIVE int mgy_az_load_moves(const uint8_t* moves, int n)
 {
-    if (n < 0 || n > kNActions || (n > 0 && !moves)) return kErrRange;
+    if (n < 0 || n > kMaxPlies || (n > 0 && !moves)) return kErrRange;
     const std::vector<uint8_t> wanted(moves, moves + n);
 
     reset_game();

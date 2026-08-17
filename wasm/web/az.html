@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Migoyugo &mdash; AlphaZero bot</title>
+<title>Migoyugo &mdash; AlphaYugo bot</title>
 <style>
   :root {
     --bg: #14161a; --panel: #1c1f26; --line: #2b3038;
@@ -66,7 +66,7 @@
 <body>
 
 <div>
-  <h1>Migoyugo &mdash; AlphaZero bot</h1>
+  <h1>Migoyugo &mdash; AlphaYugo bot</h1>
   <div class="sub">Amcts2 in WebAssembly, residual network on WebGPU</div>
   <div id="board"></div>
 </div>
@@ -81,8 +81,8 @@
   <label>think time: <b id="timeLabel">3.0</b> s</label>
   <input type="range" id="time" min="500" max="20000" step="500" value="3000">
 
-  <label>leaves per GPU batch: <b id="batchLabel">16</b></label>
-  <input type="range" id="batch" min="1" max="64" step="1" value="16">
+  <label>leaves per GPU batch: <b id="batchLabel">8</b></label>
+  <input type="range" id="batch" min="1" max="64" step="1" value="8">
 
   <div class="controls">
     <button id="newGame">New game</button>
@@ -266,7 +266,7 @@ batchEl.addEventListener('input', () => {
 setBusy(true);
 worker.postMessage({
   type: 'init', epoch: ++epoch,
-  modelUrl: 'migoyugo_az.onnx', thinkMs: 3000, batch: 16,
+  modelUrl: 'migoyugo_az.onnx', thinkMs: 3000, batch: 8,
 });
 </script>
 </body>

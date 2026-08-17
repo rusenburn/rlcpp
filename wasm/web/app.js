@@ -28,6 +28,20 @@ const AZ = 'az';
 
 const ENGINE_LABEL = { [NNUE]: 'NNUE', [AZ]: 'AlphaYugo' };
 
+// Leaves handed to the network per WebGPU call (Amcts2's max_async_simulations).
+//
+// Chosen for move quality, not throughput - and the two disagree here. Measured
+// on a 3060 Ti: batch 16 runs ~16 ms and yields 830-1000 evaluations/s, batch 8
+// runs ~30 ms and yields 375-480, because 8 positions do not saturate the GPU
+// and pay almost the same per-call overhead. The case for 8 is that a smaller
+// batch re-expands the tree twice as often, so fewer leaves are selected against
+// a stale tree; that can win on strength while losing on raw count. If it is
+// ever settled by a head-to-head match, record the result here.
+//
+// Changing this rebuilds the ONNX session: WebOnnxSession pads every run to one
+// fixed shape, and WebGPU compiles shaders per shape.
+const AZ_BATCH = 8;
+
 const state = {
   engines: { [WHITE]: HUMAN, [BLACK]: NNUE },
   epoch: 0,
@@ -87,7 +101,7 @@ function spawnAzWorker() {
     epoch: state.epoch,
     modelUrl: 'migoyugo_az.onnx',
     thinkMs: Number($('think').value),
-    batch: 16,
+    batch: AZ_BATCH,
     backend: $('az-backend').value,
   });
 }

@@ -76,7 +76,7 @@ async function boot({ modelUrl, ttMb }) {
 
   snapLen = mod._mgy_snapshot_size();
   infoLen = mod._mgy_info_size();
-  movePtr = mod._malloc(64);
+  movePtr = mod._malloc(255); // plies, not squares: promotion recycles squares
 
   postMessage({ type: 'ready', snapshotSize: snapLen, infoSize: infoLen });
 }
