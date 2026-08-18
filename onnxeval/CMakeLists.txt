@@ -21,25 +21,42 @@ project(${This})
 # rather than a linked library. Everything above about ORT_ROOT applies to
 # native builds only.
 if(EMSCRIPTEN)
-    set(This onnxeval)
+    # Built twice, once per async bridge.
+    #
+    # EM_ASYNC_JS in onnx_session_web.cpp compiles to a suspending import, and the
+    # bridge has to be known at COMPILE time, not only at link - so the flag goes
+    # on the library, PUBLIC so the executable inherits it. That is exactly why
+    # one library cannot serve both: PUBLIC -sASYNCIFY would follow into the JSPI
+    # executable and it would end up asking for both mechanisms at once.
+    #
+    # The C++ is identical in both. Emscripten's own test/core/test_em_async_js.c
+    # is run against -sASYNCIFY and -sJSPI from the same source, so nothing in
+    # onnx_session_web.cpp needs to know which one it is being built for.
+    #
+    # common/games/players are NOT duplicated: Asyncify instrumentation is a
+    # link-time Binaryen pass, and none of those translation units use
+    # EM_ASYNC_JS, so a single build of each serves both executables.
+    function(add_onnxeval_web name async_flag)
+        add_library(${name} STATIC
+            src/onnx_session.cpp
+            src/onnx_evaluator.cpp
+            src/onnx_session_web.cpp)
+        set_property(TARGET ${name} PROPERTY CXX_STANDARD 17)
 
-    add_library(${This} STATIC
-        src/onnx_session.cpp
-        src/onnx_evaluator.cpp
-        src/onnx_session_web.cpp)
-    set_property(TARGET ${This} PROPERTY CXX_STANDARD 17)
+        target_include_directories(${name}
+            PUBLIC
+                $<INSTALL_INTERFACE:include>
+                $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        )
+        target_link_libraries(${name} PUBLIC common players)
+        target_compile_options(${name} PUBLIC ${async_flag})
+    endfunction()
 
-    target_include_directories(${This}
-        PUBLIC
-            $<INSTALL_INTERFACE:include>
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    )
-    target_link_libraries(${This} PUBLIC common players)
-
-    # EM_ASYNC_JS in onnx_session_web.cpp compiles to a suspending import, which
-    # is only valid if this translation unit is built for Asyncify. The flag has
-    # to be on the library too, not just the final link.
-    target_compile_options(${This} PUBLIC -sASYNCIFY)
+    add_onnxeval_web(onnxeval      -sASYNCIFY)
+    # -sJSPI, never -sASYNCIFY=2: emscripten's cmdline.py maps -sJSPI to
+    # ASYNCIFY=2 *and* sets JSPI=1, and several of its JS paths are gated on
+    # `#if JSPI` rather than on the ASYNCIFY value.
+    add_onnxeval_web(onnxeval_jspi -sJSPI)
     return()
 endif()
 

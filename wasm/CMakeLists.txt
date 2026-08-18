@@ -123,34 +123,32 @@ add_custom_command(TARGET migoyugo_web POST_BUILD
 # migoyugo_az - the AlphaZero bot: Amcts2 over MigoyugoState, with the residual
 # network evaluated by onnxruntime-web on WebGPU.
 #
-# A separate module from migoyugo_wasm on purpose. It is linked with -sASYNCIFY
-# so that the synchronous Amcts2::search() can await onnxruntime-web's Promise,
-# and Asyncify instruments everything it is linked into. Keeping the two apart
+# A separate module from migoyugo_wasm on purpose: it needs an async bridge so
+# the synchronous Amcts2::search() can await onnxruntime-web's Promise, and that
+# bridge instruments or wraps everything linked into it. Keeping the two apart
 # means the NNUE alpha-beta engine keeps the codegen it has today.
+#
+# Built TWICE, once per bridge, and az_worker.js loads whichever the browser
+# supports:
+#
+#   migoyugo_az       -sASYNCIFY  rewrites the wasm to unwind and rewind its own
+#                                 stack. Works everywhere, costs size and a stack
+#                                 copy on each of the ~150 suspends per move.
+#   migoyugo_az_jspi  -sJSPI      the VM switches stacks natively - no rewriting.
+#                                 Chrome 137+, Firefox 139+; Safari not yet.
+#
+# Everything except the bridge is identical, so the options are shared below and
+# only the differing flags are per-target.
 # ---------------------------------------------------------------------------
-
-set(AzThis migoyugo_az_wasm)
-
-add_executable(${AzThis} migoyugo_az_wasm.cpp)
-target_link_libraries(${AzThis} PRIVATE onnxeval players games common)
-set_target_properties(${AzThis} PROPERTIES OUTPUT_NAME migoyugo_az)
 
 set(MGY_AZ_EXPORTS "_malloc,_free,_mgy_az_init,_mgy_az_new_game,_mgy_az_play,_mgy_az_undo,_mgy_az_load_moves,_mgy_az_bot_move,_mgy_az_bot_suggest,_mgy_az_set_time_ms,_mgy_az_set_batch,_mgy_az_snapshot,_mgy_az_snapshot_size,_mgy_az_probs,_mgy_az_evaluation,_mgy_az_last_evaluations")
 
-target_link_options(${AzThis} PRIVATE
+set(MGY_AZ_COMMON_LINK_OPTIONS
     -sMODULARIZE=1
+    # The same factory name in both builds. Only one glue file is ever loaded, so
+    # there is no collision, and az_worker.js keeps a single init path.
     -sEXPORT_NAME=createMigoyugoAz
     -sENVIRONMENT=worker
-
-    # The whole point of this target. EM_ASYNC_JS in onnx_session_web.cpp
-    # suspends the wasm stack until onnxruntime-web resolves; without this the
-    # module fails to link with "ASYNCIFY is not enabled".
-    -sASYNCIFY
-    # The suspended stack is shallow - Amcts2::search -> OnnxEvaluator::evaluate
-    # -> run -> JS, with the tree recursion already unwound - but the default
-    # 4 KB unwind buffer is tight enough that overflowing it aborts at runtime
-    # rather than at link time. 64 KB costs nothing.
-    -sASYNCIFY_STACK_SIZE=65536
 
     -sSTACK_SIZE=4MB
     # Only the MCTS tree lives in linear memory; the 40 MB of weights stay on
@@ -167,15 +165,64 @@ target_link_options(${AzThis} PRIVATE
     # HEAPF32 as well as HEAPU8: the observation and policy buffers the JS
     # bridge reads and writes are float32.
     #
-    # ccall is not optional here. A plain Asyncify export does NOT return a
-    # Promise - calling _mgy_az_bot_move() directly returns a bogus value the
-    # instant the search first suspends, long before a move exists. Only
-    # ccall(..., {async: true}) hands back a promise that settles when the C++
-    # function has really returned.
+    # ccall is not optional, under EITHER bridge. Under Asyncify a plain
+    # _mgy_az_bot_move() returns a bogus value the instant the search first
+    # suspends, long before a move exists. Under JSPI the export does return a
+    # real Promise, but ccall(..., {async: true}) works there too
+    # (emscripten src/lib/libccall.js), so one call form serves both.
     -sEXPORTED_RUNTIME_METHODS=[HEAPU8,HEAPF32,ccall]
 )
 
+# migoyugo_az - Asyncify. The portable one; also the fallback when JSPI is
+# missing or fails.
+set(AzThis migoyugo_az_wasm)
+
+add_executable(${AzThis} migoyugo_az_wasm.cpp)
+target_link_libraries(${AzThis} PRIVATE onnxeval players games common)
+set_target_properties(${AzThis} PROPERTIES OUTPUT_NAME migoyugo_az)
+
+target_link_options(${AzThis} PRIVATE
+    ${MGY_AZ_COMMON_LINK_OPTIONS}
+
+    # EM_ASYNC_JS in onnx_session_web.cpp suspends the wasm stack until
+    # onnxruntime-web resolves; without this the module fails to link with
+    # "ASYNCIFY is not enabled".
+    -sASYNCIFY
+    # The suspended stack is shallow - Amcts2::search -> OnnxEvaluator::evaluate
+    # -> run -> JS, with the tree recursion already unwound - but the default
+    # 4 KB unwind buffer is tight enough that overflowing it aborts at runtime
+    # rather than at link time. 64 KB costs nothing.
+    -sASYNCIFY_STACK_SIZE=65536
+)
+
 set_target_properties(${AzThis} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/web)
+
+# migoyugo_az_jspi - same source, native stack switching.
+set(AzJspiThis migoyugo_az_jspi_wasm)
+
+add_executable(${AzJspiThis} migoyugo_az_wasm.cpp)
+target_link_libraries(${AzJspiThis} PRIVATE onnxeval_jspi players games common)
+set_target_properties(${AzJspiThis} PROPERTIES OUTPUT_NAME migoyugo_az_jspi)
+
+target_link_options(${AzJspiThis} PRIVATE
+    ${MGY_AZ_COMMON_LINK_OPTIONS}
+
+    -sJSPI
+    # Mandatory, not tuning. Only `main` is promised by default; any other export
+    # that suspends must be listed here or it is never wrapped with
+    # WebAssembly.promising and traps the moment it tries to suspend. Both are
+    # named explicitly rather than with a wildcard so a rename fails the build.
+    -sJSPI_EXPORTS=mgy_az_bot_move,mgy_az_bot_suggest
+    # -sJSPI unconditionally warns that it is experimental (tools/link.py). It is
+    # shipped in Chrome and Firefox and standardised; silence the per-build noise.
+    -Wno-experimental
+
+    # No ASYNCIFY_STACK_SIZE here, and no other ASYNCIFY_* knob: they apply only
+    # to ASYNCIFY=1. There is no unwind buffer to size - the VM owns the stack.
+)
+
+set_target_properties(${AzJspiThis} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/web)
 
 set(MGY_AZ_WEB_FILES
@@ -196,7 +243,7 @@ add_custom_target(migoyugo_az_web ALL
     ${MGY_AZ_COPY_COMMANDS}
     COMMENT "Copying AlphaZero web assets to ${CMAKE_BINARY_DIR}/web"
     VERBATIM)
-add_dependencies(migoyugo_az_web ${AzThis})
+add_dependencies(migoyugo_az_web ${AzThis} ${AzJspiThis})
 
 # Unlike the NNUE weights this is a warning, not a fatal error: the .onnx is
 # 40 MB and only the AlphaZero page needs it, so a missing one must not block

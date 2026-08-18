@@ -23,9 +23,49 @@
 const ORT_VERSION = '1.27.0';
 const ORT_DIST = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;
 
+// --- async bridge -----------------------------------------------------------
+//
+// Two builds of the same C++ exist, differing only in how Amcts2's synchronous
+// search is suspended while onnxruntime-web resolves:
+//
+//   asyncify  the wasm is rewritten to unwind and rewind its own stack. Works
+//             in every browser. Costs a stack copy on each of the ~150 suspends
+//             per move, and more than doubles the module.
+//   jspi      the VM switches stacks natively. Chrome 137+, Firefox 139+.
+//             Safari has not shipped it yet.
+//
+// Measured on a 3060 Ti, same positions, batch 8, 3 s per move:
+//
+//   speed  identical - 468 ev/s (jspi) against 467 (asyncify), well inside the
+//          run-to-run spread. Essentially the whole move is spent inside
+//          session.run, so the bridge overhead is invisible next to a ~25 ms GPU
+//          call. Do not expect JSPI to make the bot search deeper.
+//   size   171 KB against 348 KB of wasm, plus 16 KB against 22 KB of glue. That
+//          is the entire practical win, and only one of the two is ever fetched.
+//
+// So JSPI is kept as the default because it is smaller and is where the platform
+// is going, not because it is faster here. If a future workload becomes
+// CPU-bound in the tree rather than GPU-bound, re-measure before assuming.
+//
+// Detection matches what emscripten itself asserts on. That assert lives behind
+// ASSERTIONS, which Release compiles out, so on an unsupported browser the JSPI
+// build would fail obscurely rather than loudly - this check is what keeps the
+// failure clean, and it runs before the glue is even fetched.
+//
+// ?bridge=jspi / ?bridge=asyncify forces one, so the two can be compared on the
+// same machine without a rebuild. app.js appends it to the worker URL, since a
+// worker does not inherit the page's query string.
+const BRIDGE_OVERRIDE = new URLSearchParams(self.location.search).get('bridge');
+const JSPI_AVAILABLE = 'Suspending' in WebAssembly && 'promising' in WebAssembly;
+const USE_JSPI = BRIDGE_OVERRIDE === 'jspi' ? true
+  : BRIDGE_OVERRIDE === 'asyncify' ? false
+    : JSPI_AVAILABLE;
+const BRIDGE = USE_JSPI ? 'jspi' : 'asyncify';
+
 importScripts(`${ORT_DIST}ort.webgpu.min.js`);
 importScripts('az_snapshot.js');
-importScripts('migoyugo_az.js'); // defines self.createMigoyugoAz
+// Only one is ever loaded; both define self.createMigoyugoAz.
+importScripts(USE_JSPI ? 'migoyugo_az_jspi.js' : 'migoyugo_az.js');
 
 let mod = null;
 let session = null;
@@ -35,6 +75,10 @@ let inputName = null;
 let probsName = null;
 let wdlName = null;
 let provider = 'unknown';
+// Set once a search has completed. Until then a failure may mean the chosen
+// bridge does not really work here, which is recoverable by reloading on the
+// other one; after that, a failure is a genuine error.
+let searchSucceeded = false;
 
 const OK = 0;
 const ERRORS = {
@@ -236,7 +280,7 @@ async function boot({ modelUrl, thinkMs, batch, backend }) {
     throw new Error(`snapshot size ${snapLen} does not match az_snapshot.js (${AZ_SNAPSHOT_SIZE})`);
   }
 
-  postMessage({ type: 'ready', provider, detail, snapshotSize: snapLen });
+  postMessage({ type: 'ready', provider, detail, bridge: BRIDGE, snapshotSize: snapLen });
 }
 
 self.onmessage = async (e) => {
@@ -275,8 +319,12 @@ self.onmessage = async (e) => {
         // ccall with async:true, NOT mod._mgy_az_bot_move(). The search suspends
         // every time it hands a batch to the GPU, and a directly-called Asyncify
         // export returns a meaningless value at the first suspend rather than
-        // waiting for the function to finish. This is the only form that yields
-        // a promise settling on the real return value.
+        // waiting for the function to finish.
+        //
+        // The same form is correct under JSPI (emscripten src/lib/libccall.js
+        // returns ret.then(onDone) there), so no branch is needed - but note the
+        // asymmetry: under JSPI, omitting {async: true} fails SILENTLY, handing
+        // back a converted Promise object with no assertion to catch it.
         const sq = await mod.ccall('mgy_az_bot_move', 'number', [], [], { async: true });
         const elapsed = performance.now() - t0;
         if (sq < 0) {
@@ -320,6 +368,7 @@ self.onmessage = async (e) => {
         if (sq < 0) {
           postMessage({ type: 'rejected', epoch, sq: -1, reason: describe(sq) });
         } else {
+          searchSucceeded = true;
           postMessage({
             type: 'azMove', epoch, sq,
             elapsedMs: elapsed,
@@ -343,6 +392,18 @@ self.onmessage = async (e) => {
         console.warn('az_worker: unknown message', msg.type);
     }
   } catch (err) {
-    postMessage({ type: 'error', epoch, message: String(err && err.message ? err.message : err) });
+    const message = String(err && err.message ? err.message : err);
+
+    // Feature detection can pass on a partial or origin-trial JSPI while the
+    // build still fails - at module instantiation, or at the first real suspend.
+    // Neither is recoverable inside this worker: the glue was chosen by
+    // importScripts at load time and cannot be swapped. Hand it back to app.js,
+    // which respawns with ?bridge=asyncify.
+    if (BRIDGE === 'jspi' && !searchSucceeded) {
+      console.warn('JSPI bridge failed, falling back to asyncify:', err);
+      postMessage({ type: 'bridgeFailed', epoch, bridge: BRIDGE, message });
+      return;
+    }
+    postMessage({ type: 'error', epoch, message });
   }
 };

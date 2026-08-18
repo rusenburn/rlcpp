@@ -59,6 +59,9 @@ const state = {
   ready: false,     // NNUE worker
   azReady: false,   // AlphaYugo worker, many seconds later - 40 MB plus shaders
   azLoading: false,
+  // null lets az_worker.js feature-detect. Set to 'asyncify' after a JSPI
+  // failure, or from a ?bridge= on the page URL, and it is forced instead.
+  azBridge: new URLSearchParams(location.search).get('bridge'),
   running: false,   // engine-vs-engine loop is live
   hint: -1,
 };
@@ -90,7 +93,10 @@ function spawnAzWorker() {
   state.azLoading = true;
   setAzStatus('AlphaYugo: loading the network (40 MB)…');
 
-  azWorker = new Worker('az_worker.js');
+  // The query string is how az_worker.js learns which build to importScripts,
+  // and it must be on the WORKER url - workers do not inherit the page's.
+  const url = state.azBridge ? `az_worker.js?bridge=${encodeURIComponent(state.azBridge)}` : 'az_worker.js';
+  azWorker = new Worker(url);
   azWorker.onmessage = onAzMessage;
   azWorker.onerror = (e) => {
     state.azLoading = false;
@@ -211,10 +217,25 @@ function onAzMessage(e) {
   if (msg.type === 'ready') {
     state.azLoading = false;
     state.azReady = true;
-    setAzStatus(`AlphaYugo: ready on ${msg.provider}.`);
+    setAzStatus(`AlphaYugo: ready on ${msg.provider}${msg.bridge ? ` (${msg.bridge})` : ''}.`);
     azWorker.postMessage({ type: 'setTime', ms: Number($('think').value) });
     render();
     scheduleNext();
+    return;
+  }
+
+  // JSPI looked available but did not work. Respawn on the portable build; the
+  // ONNX model is already in the HTTP cache, so this costs a module load, not
+  // another 40 MB.
+  if (msg.type === 'bridgeFailed') {
+    if (azWorker) { azWorker.terminate(); azWorker = null; }
+    state.azReady = false;
+    state.azLoading = false;
+    state.thinking = false;
+    state.azBridge = 'asyncify';
+    setAzStatus('AlphaYugo: JSPI failed here, retrying on the portable build…');
+    spawnAzWorker();
+    render();
     return;
   }
 
