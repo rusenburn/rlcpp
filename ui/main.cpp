@@ -26,6 +26,7 @@ int main(int argc, char const* argv[])
     rl::ui::MainUI ui{ WINDOW_W, WINDOW_H };
 
     InitWindow(WINDOW_W, WINDOW_H, "Reinforcement Learning");
+    InitAudioDevice();
     // ui.init();
     SetTargetFPS(FPS);
 
@@ -38,6 +39,7 @@ int main(int argc, char const* argv[])
         ui.draw_game();
         EndDrawing();
     }
+    CloseAudioDevice();
     CloseWindow();
     return 0;
 }

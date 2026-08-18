@@ -1,6 +1,11 @@
 #include "migoyugo_ui.hpp"
 #include <iostream>
 #include <sstream>
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
 
 namespace rl::ui
 {
@@ -19,11 +24,18 @@ static bool uses_load_name(const std::string& player_type)
 }
 
 MigoyugoUI::MigoyugoUI(int width, int height)
-    : width_{ width }, height_{ height }, padding_{ 2 }, state_ptr_{ rl::games::MigoyugoState::initialize_state() },
+    : width_{ width }, height_{ height }, padding_{ 2 },
+    cell_size_{ 0 }, inner_cell_size_{ 0 },
+    left_margin_{ 24 }, header_height_{ 60 },
+    state_ptr_{ rl::games::MigoyugoState::initialize_state() },
     current_window_{ MigoyugoWindow::menu },
     players_{},
-    paused_{ false },
-    pause_until_{ 0.0 },
+    obs_{}, actions_legality_{}, buttons_{}, history_{},
+    game_over_{ false },
+    winner_{ -2 },
+    exit_button_rect_{}, rematch_button_rect_{},
+    wins_{}, draws_{ 0 },
+    move_sound_{}, win_sound_{}, draw_sound_{},
     selected_player_type_{ "default_g_player" },
     duration_input_{ "5000" },
     loadname_input_{ "" },
@@ -32,17 +44,27 @@ MigoyugoUI::MigoyugoUI(int width, int height)
     player_type_index_{ 0 }
 
 {
-    // Reserve space for coordinate labels: left margin for numbers, right/bottom for letters
-    // Allocate space for row numbers on the left
-    int left_margin = 30;  // Fixed space for row numbers
-    int board_width = width_ - left_margin;
-    cell_size_ = board_width / 8;
+    // Reserve space for coordinate labels: left margin for row numbers, header
+    // for names/score/turn indicator, bottom margin for column letters.
+    int bottom_margin = 24;
+    int available_w = width_ - left_margin_;
+    int available_h = height_ - header_height_ - bottom_margin;
+    cell_size_ = std::min(available_w, available_h) / 8;
     inner_cell_size_ = cell_size_ - 2 * padding_;
     initialize_buttons();
     reset_state();
+
+    move_sound_ = load_tone_sound(synthesize_tone(760.0f, 0.09f, ToneWave::Sine, 0.5f));
+    win_sound_ = load_tone_sound(synthesize_sequence({ {523.25f, 0.12f}, {659.25f, 0.12f}, {784.00f, 0.18f} }, ToneWave::Sine, 0.5f));
+    draw_sound_ = load_tone_sound(synthesize_sequence({ {392.00f, 0.12f}, {349.23f, 0.22f} }, ToneWave::Square, 0.4f));
 }
 
-MigoyugoUI::~MigoyugoUI() = default;
+MigoyugoUI::~MigoyugoUI()
+{
+    UnloadSound(move_sound_);
+    UnloadSound(win_sound_);
+    UnloadSound(draw_sound_);
+}
 
 void MigoyugoUI::draw_game()
 {
@@ -102,6 +124,14 @@ void MigoyugoUI::initialize_buttons()
 
     // Start game button (position will be calculated dynamically)
     buttons_.push_back(std::make_pair<Rectangle, Color>(Rectangle{ left + button_width + 20, top, button_width, button_height }, BLUE));
+
+    // Game-over overlay buttons, centered over the board
+    Rectangle panel = { (width_ - 380) / 2.0f, header_height_ + (height_ - header_height_ - 24 - 170) / 2.0f, 380, 170 };
+    float overlay_button_width = 160;
+    float overlay_button_height = 34;
+    float overlay_button_y = panel.y + panel.height - overlay_button_height - 16;
+    exit_button_rect_ = { panel.x + 20, overlay_button_y, overlay_button_width, overlay_button_height };
+    rematch_button_rect_ = { panel.x + panel.width - overlay_button_width - 20, overlay_button_y, overlay_button_width, overlay_button_height };
 }
 
 void MigoyugoUI::draw_board()
@@ -117,12 +147,14 @@ void MigoyugoUI::draw_board()
     int current_player = state_ptr_->player_turn();
     int last_action = state_ptr_->get_last_action();
 
+    draw_header();
+
     for (int row = 0; row < ROWS; row++)
     {
         for (int col = 0; col < COLS; col++)
         {
-            left = col * cell_size_ + padding_;
-            top = row * cell_size_ + padding_;
+            left = left_margin_ + col * cell_size_ + padding_;
+            top = header_height_ + row * cell_size_ + padding_;
 
             // Draw cell background
             DrawRectangle(left, top, inner_cell_size_, inner_cell_size_, DARKGREEN);
@@ -175,8 +207,8 @@ void MigoyugoUI::draw_board()
     // Draw coordinate labels
     // Column letters a-h at bottom
     for (int col = 0; col < COLS; col++) {
-        left = col * cell_size_ + padding_ + inner_cell_size_ / 2 - 5;
-        top = ROWS * cell_size_ + padding_ + 5;
+        left = left_margin_ + col * cell_size_ + padding_ + inner_cell_size_ / 2 - 5;
+        top = header_height_ + ROWS * cell_size_ + padding_ + 5;
         char letter = 'a' + col;
         DrawText(&letter, left, top, 16, BLACK);
     }
@@ -184,12 +216,111 @@ void MigoyugoUI::draw_board()
     // Row numbers 1-8 (1 at bottom, 8 at top)
     for (int row = 0; row < ROWS; row++) {
         left = 5;  // Fixed position within the left margin
-        top = row * cell_size_ + padding_ + inner_cell_size_ / 2 - 8;  // Center vertically in the cell
+        top = header_height_ + row * cell_size_ + padding_ + inner_cell_size_ / 2 - 8;  // Center vertically in the cell
         char number = '8' - row;  // 8 at top (row 0), 1 at bottom (row 7)
         DrawText(&number, left, top, 16, BLACK);
     }
 
     draw_legal_actions();
+
+    if (game_over_)
+    {
+        draw_game_over_overlay();
+    }
+}
+
+void MigoyugoUI::count_yugos(int& p0_yugos, int& p1_yugos) const
+{
+    constexpr int ROWS = 8;
+    constexpr int COLS = 8;
+    constexpr int OUR_YUGO_CHANNEL = 1;
+    constexpr int OPP_YUGO_CHANNEL = 3;
+    constexpr int channel_size = ROWS * COLS;
+
+    p0_yugos = 0;
+    p1_yugos = 0;
+
+    // obs_ is always from the current player's perspective; map "our"/"opp"
+    // channels back to the fixed player-0/player-1 identities used everywhere
+    // else in the UI (see draw_board()'s identical mapping).
+    int current_player = state_ptr_->player_turn();
+    int actual_player_for_our = current_player == 0 ? 0 : 1;
+    int actual_player_for_opp = 1 - actual_player_for_our;
+
+    for (int i = 0; i < channel_size; i++)
+    {
+        if (obs_.at(OUR_YUGO_CHANNEL * channel_size + i) == 1.0f)
+        {
+            (actual_player_for_our == 0 ? p0_yugos : p1_yugos)++;
+        }
+        if (obs_.at(OPP_YUGO_CHANNEL * channel_size + i) == 1.0f)
+        {
+            (actual_player_for_opp == 0 ? p0_yugos : p1_yugos)++;
+        }
+    }
+}
+
+void MigoyugoUI::draw_header()
+{
+    int current_player = state_ptr_->player_turn();
+
+    if (!game_over_)
+    {
+        DrawRectangle(0, current_player == 0 ? 0 : 20, width_, 20, Fade(YELLOW, 0.35f));
+    }
+
+    int p0_yugos = 0, p1_yugos = 0;
+    count_yugos(p0_yugos, p1_yugos);
+
+    std::string p1_name = players_.size() > 0 ? players_[0]->name_ : "?";
+    std::string p2_name = players_.size() > 1 ? players_[1]->name_ : "?";
+    int p1_wins = wins_.size() > 0 ? wins_[0] : 0;
+    int p2_wins = wins_.size() > 1 ? wins_[1] : 0;
+
+    std::string p1_text = "P1 White: " + p1_name + "  (Wins: " + std::to_string(p1_wins) + ", Yugos: " + std::to_string(p0_yugos) + ")";
+    std::string p2_text = "P2 Black: " + p2_name + "  (Wins: " + std::to_string(p2_wins) + ", Yugos: " + std::to_string(p1_yugos) + ")";
+    std::string draws_text = "Draws: " + std::to_string(draws_);
+
+    DrawText(p1_text.c_str(), 4, 4, 14, BLACK);
+    DrawText(p2_text.c_str(), 4, 24, 14, BLACK);
+    int draws_width = MeasureText(draws_text.c_str(), 12);
+    DrawText(draws_text.c_str(), (width_ - draws_width) / 2, 44, 12, DARKGRAY);
+}
+
+void MigoyugoUI::draw_game_over_overlay()
+{
+    Rectangle panel = { (width_ - 380) / 2.0f, header_height_ + (height_ - header_height_ - 24 - 170) / 2.0f, 380, 170 };
+    DrawRectangleRec(panel, Fade(BLACK, 0.85f));
+    DrawRectangleLinesEx(panel, 2, WHITE);
+
+    std::string title;
+    std::string subtitle;
+    if (winner_ == -1)
+    {
+        title = "Draw!";
+    }
+    else
+    {
+        title = (winner_ == 0 ? "White Wins!" : "Black Wins!");
+        std::string name = winner_ < static_cast<int>(players_.size()) ? players_[winner_]->name_ : "?";
+        subtitle = "Player " + std::to_string(winner_ + 1) + ": " + name;
+    }
+
+    int title_width = MeasureText(title.c_str(), 28);
+    DrawText(title.c_str(), panel.x + (panel.width - title_width) / 2, panel.y + 16, 28, WHITE);
+
+    if (!subtitle.empty())
+    {
+        int subtitle_width = MeasureText(subtitle.c_str(), 16);
+        DrawText(subtitle.c_str(), panel.x + (panel.width - subtitle_width) / 2, panel.y + 52, 16, LIGHTGRAY);
+    }
+
+    DrawRectangleRec(exit_button_rect_, GRAY);
+    DrawText("Exit to Menu", exit_button_rect_.x + 10, exit_button_rect_.y + 9, 14, BLACK);
+
+    DrawRectangleRec(rematch_button_rect_, GREEN);
+    DrawText("Rematch", rematch_button_rect_.x + 10, rematch_button_rect_.y + 4, 14, BLACK);
+    DrawText("(Switch Sides)", rematch_button_rect_.x + 10, rematch_button_rect_.y + 18, 10, BLACK);
 }
 
 void MigoyugoUI::draw_menu()
@@ -261,14 +392,21 @@ void MigoyugoUI::draw_menu()
     top += 20;
     for (size_t i = 0; i < players_.size(); ++i) {
         std::string player_text = "Player " + std::to_string(i + 1) + ": " + players_[i]->name_;
+        if (i < wins_.size()) {
+            player_text += "  (Wins: " + std::to_string(wins_[i]) + ")";
+        }
         DrawText(player_text.c_str(), left, top, 14, BLACK);
         top += 20;
+    }
+    if (!players_.empty()) {
+        std::string draws_text = "Draws: " + std::to_string(draws_);
+        DrawText(draws_text.c_str(), left, top, 14, BLACK);
     }
 }
 
 void MigoyugoUI::handle_board_events()
 {
-    if (!paused_)
+    if (!game_over_)
     {
         int current_player_ind = state_ptr_->player_turn();
         auto& current_player_info = players_.at(current_player_ind);
@@ -278,10 +416,17 @@ void MigoyugoUI::handle_board_events()
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
             {
                 Vector2 mouse_position = GetMousePosition();
-                int row, col;
-                row = mouse_position.y / cell_size_;
-                col = mouse_position.x / cell_size_;
-                perform_player_action(row, col);
+                int rel_x = static_cast<int>(mouse_position.x) - left_margin_;
+                int rel_y = static_cast<int>(mouse_position.y) - header_height_;
+                if (rel_x >= 0 && rel_y >= 0)
+                {
+                    int row = rel_y / cell_size_;
+                    int col = rel_x / cell_size_;
+                    if (row <= 7 && col <= 7)
+                    {
+                        perform_player_action(row, col);
+                    }
+                }
             }
         }
         else
@@ -291,8 +436,18 @@ void MigoyugoUI::handle_board_events()
         }
         if (state_ptr_->is_terminal())
         {
-            paused_ = true;
-            pause_until_ = GetTime() + 5;
+            game_over_ = true;
+            winner_ = compute_winner();
+            if (winner_ == -1)
+            {
+                draws_++;
+                PlaySound(draw_sound_);
+            }
+            else
+            {
+                wins_.at(winner_)++;
+                PlaySound(win_sound_);
+            }
 
             std::cout << "Actions History: ";
             for (int action : history_) {
@@ -303,11 +458,24 @@ void MigoyugoUI::handle_board_events()
     }
     else
     {
-        double current_time = GetTime();
-        if (current_time > pause_until_)
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
-            current_window_ = MigoyugoWindow::menu;
-            paused_ = false;
+            Vector2 mouse_pos = GetMousePosition();
+            if (CheckCollisionPointRec(mouse_pos, exit_button_rect_))
+            {
+                current_window_ = MigoyugoWindow::menu;
+                game_over_ = false;
+                winner_ = -2;
+            }
+            else if (CheckCollisionPointRec(mouse_pos, rematch_button_rect_))
+            {
+                std::reverse(players_.begin(), players_.end());
+                std::reverse(wins_.begin(), wins_.end());
+                reset_state();
+                history_.clear();
+                game_over_ = false;
+                winner_ = -2;
+            }
         }
     }
 }
@@ -375,6 +543,7 @@ void MigoyugoUI::handle_menu_events()
         }
         // Add player button
         else if (CheckCollisionPointRec(mouse_pos, std::get<0>(buttons_[1]))) {
+            size_t prev_player_count = players_.size();
             try {
                 int duration_ms = std::stoi(duration_input_);
                 auto duration = std::chrono::duration_cast<std::chrono::duration<int, std::milli>>(std::chrono::milliseconds(duration_ms));
@@ -430,16 +599,24 @@ void MigoyugoUI::handle_menu_events()
             catch (const std::invalid_argument&) {
                 // Invalid duration, ignore
             }
+            if (players_.size() != prev_player_count) {
+                wins_.assign(players_.size(), 0);
+                draws_ = 0;
+            }
         }
         // Clear players button
         else if (CheckCollisionPointRec(mouse_pos, std::get<0>(buttons_[2]))) {
             players_.clear();
+            wins_.clear();
+            draws_ = 0;
         }
         // Start game button (only if >=2 players)
         else if (players_.size() >= 2 && CheckCollisionPointRec(mouse_pos, std::get<0>(buttons_[3]))) {
             reset_state();
             history_.clear();
             current_window_ = MigoyugoWindow::game;
+            game_over_ = false;
+            winner_ = -2;
         }
     }
 }
@@ -451,7 +628,17 @@ void MigoyugoUI::perform_action(int action)
     {
         history_.push_back(action);
         set_state(state_ptr_->step_state(action));
+        PlaySound(move_sound_);
     }
+}
+
+int MigoyugoUI::compute_winner() const
+{
+    float r = state_ptr_->get_reward(); // relative to state_ptr_->player_turn()
+    int to_move = state_ptr_->player_turn();
+    if (r > 0.0f) return to_move;
+    if (r < 0.0f) return 1 - to_move;
+    return -1; // draw
 }
 
 void MigoyugoUI::perform_player_action(int row, int col)
@@ -465,27 +652,30 @@ void MigoyugoUI::perform_player_action(int row, int col)
 
 void MigoyugoUI::draw_piece(int left, int top, int player, bool is_yugo)
 {
-    int left_center = left + inner_cell_size_ / 2;
-    int top_center = top + inner_cell_size_ / 2;
-    int radius = inner_cell_size_ / 4;
+    float cx = left + inner_cell_size_ / 2.0f;
+    float cy = top + inner_cell_size_ / 2.0f;
+    float radius = inner_cell_size_ * 0.38f;
 
-    Color piece_color;
-    if (player == 0)
-    {
-        piece_color = is_yugo ? WHITE : WHITE;
-    }
-    else
-    {
-        piece_color = is_yugo ? BLACK : BLACK;
-    }
+    Color base = player == 0 ? RAYWHITE : Color{ 30, 30, 30, 255 };
+    Color outline = player == 0 ? Color{ 60, 60, 60, 255 } : Color{ 10, 10, 10, 255 };
 
-    DrawCircle(left_center, top_center, radius, piece_color);
+    // Drop shadow
+    DrawCircle(cx + 3, cy + 3, radius, Fade(BLACK, 0.35f));
+    // Base disc
+    DrawCircle(cx, cy, radius, base);
+    // Glossy highlight
+    DrawEllipse(cx - radius * 0.35f, cy - radius * 0.35f, radius * 0.4f, radius * 0.28f, Fade(WHITE, 0.5f));
+    // Crisp outline
+    DrawRing({ cx, cy }, radius - 1.5f, radius, 0, 360, 32, outline);
 
-    // Add small red circle inside yugo pieces
     if (is_yugo)
     {
-        DrawCircle(left_center, top_center, radius / 3, RED);
-        DrawCircleLines(left_center, top_center, radius, BLACK);
+        Color emblem = player == 0 ? Color{ 180, 30, 30, 255 } : Color{ 220, 60, 60, 255 };
+        // Accent ring marking this as a yugo
+        DrawRing({ cx, cy }, radius + 2, radius + 5, 0, 360, 32, GOLD);
+        // Diamond emblem
+        DrawPoly({ cx, cy }, 4, radius * 0.42f, 45.0f, emblem);
+        DrawPolyLines({ cx, cy }, 4, radius * 0.42f, 45.0f, BLACK);
     }
 }
 
@@ -498,12 +688,91 @@ void MigoyugoUI::draw_legal_actions()
         {
             int row = action / 8;
             int col = action % 8;
-            left = col * cell_size_ + padding_;
-            top = row * cell_size_ + padding_;
+            left = left_margin_ + col * cell_size_ + padding_;
+            top = header_height_ + row * cell_size_ + padding_;
             Rectangle ol = { left, top, inner_cell_size_, inner_cell_size_ };
             DrawRectangleLinesEx(ol, 2.0f, GREEN);
         }
     }
+}
+
+Wave MigoyugoUI::synthesize_tone(float freq_hz, float duration_sec, ToneWave shape, float amplitude) const
+{
+    constexpr float kPi = 3.14159265358979323846f;
+    unsigned int sample_rate = 44100;
+    unsigned int frame_count = static_cast<unsigned int>(duration_sec * sample_rate);
+    int16_t* samples = static_cast<int16_t*>(std::malloc(frame_count * sizeof(int16_t)));
+
+    unsigned int fade_frames = static_cast<unsigned int>(0.008f * sample_rate);
+
+    for (unsigned int i = 0; i < frame_count; i++)
+    {
+        float t = static_cast<float>(i) / sample_rate;
+        float raw = sinf(2.0f * kPi * freq_hz * t);
+        if (shape == ToneWave::Square)
+        {
+            raw = raw >= 0.0f ? 1.0f : -1.0f;
+        }
+
+        float env = 1.0f;
+        if (fade_frames > 0 && frame_count > 2 * fade_frames)
+        {
+            if (i < fade_frames)
+            {
+                env = static_cast<float>(i) / fade_frames;
+            }
+            else if (i >= frame_count - fade_frames)
+            {
+                env = static_cast<float>(frame_count - i) / fade_frames;
+            }
+        }
+
+        samples[i] = static_cast<int16_t>(raw * amplitude * env * 32000.0f);
+    }
+
+    Wave wave{};
+    wave.frameCount = frame_count;
+    wave.sampleRate = sample_rate;
+    wave.sampleSize = 16;
+    wave.channels = 1;
+    wave.data = samples;
+    return wave;
+}
+
+Wave MigoyugoUI::synthesize_sequence(const std::vector<std::pair<float, float>>& notes, ToneWave shape, float amplitude) const
+{
+    std::vector<Wave> note_waves;
+    unsigned int total_frames = 0;
+    for (const auto& note : notes)
+    {
+        Wave w = synthesize_tone(note.first, note.second, shape, amplitude);
+        note_waves.push_back(w);
+        total_frames += w.frameCount;
+    }
+
+    int16_t* combined = static_cast<int16_t*>(std::malloc(total_frames * sizeof(int16_t)));
+    unsigned int offset = 0;
+    for (Wave& w : note_waves)
+    {
+        std::memcpy(combined + offset, w.data, w.frameCount * sizeof(int16_t));
+        offset += w.frameCount;
+        UnloadWave(w);
+    }
+
+    Wave result{};
+    result.frameCount = total_frames;
+    result.sampleRate = 44100;
+    result.sampleSize = 16;
+    result.channels = 1;
+    result.data = combined;
+    return result;
+}
+
+Sound MigoyugoUI::load_tone_sound(Wave wave) const
+{
+    Sound sound = LoadSoundFromWave(wave);
+    UnloadWave(wave);
+    return sound;
 }
 
 } // namespace rl::ui
